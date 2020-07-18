@@ -1,0 +1,23 @@
+name: Docker
+
+on: [push]
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Start Docker containers
+      run: docker-compose up -d
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+    - name: Set up pipenv
+      run: |
+        set -x
+        pip install pipenv
+        pipenv sync
+    - name: Run integration tests
+      run: pipenv run test
