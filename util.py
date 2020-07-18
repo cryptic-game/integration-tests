@@ -5,7 +5,7 @@ from PyCrypCli.client import Client
 
 
 def get_client() -> Client:
-    return Client("ws://172.19.0.2")
+    return Client("ws://127.0.0.1:8080")
 
 
 def is_uuid(inp: str) -> bool:
