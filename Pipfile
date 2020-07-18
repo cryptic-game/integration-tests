@@ -9,6 +9,7 @@ verify_ssl = true
 coverage = "*"
 pycrypcli = "==1.6.1.dev0"
 pymysql = "*"
+bcrypt = "*"
 
 [requires]
 python_version = "3.8"
