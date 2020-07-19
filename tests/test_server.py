@@ -2,6 +2,7 @@ import time
 from unittest.case import TestCase
 
 from PyCrypCli.client import Client
+from PyCrypCli.exceptions import InvalidLoginException
 from bcrypt import hashpw, gensalt
 
 from database import execute
@@ -216,11 +217,7 @@ class TestServer(TestCase):
         )
         self.assertEqual(expected, actual)
 
-        expected = {"error": "permissions denied"}
-        actual = client.request({"action": "login", "name": "super", "password": super_password})
-        self.assertEqual(expected, actual)
+        with self.assertRaises(InvalidLoginException):
+            client.login("super", super_password)
 
-        result = client.request({"action": "login", "name": "super", "password": super_password + "x"})
-        self.assertIsInstance(result, dict)
-        self.assertEqual(["token"], list(result))
-        self.assertTrue(is_uuid(result["token"]))
+        self.assertTrue(is_uuid(client.login("super", super_password + "x")))
