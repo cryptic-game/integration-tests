@@ -175,3 +175,52 @@ class TestServer(TestCase):
         self.assertEqual("super", result["name"])
         self.assertGreaterEqual(result["online"], 1)
         self.assertEqual(super_uuid, result["uuid"])
+
+    def test_password_logged_in(self):
+        setup_account()
+        client: Client = get_client()
+        client.login("super", super_password)
+
+        expected = {"error": "unknown action"}
+        actual = client.request({"action": "password", "name": "super", "password": super_password, "new": "x"})
+        self.assertEqual(expected, actual)
+
+    def test_password_invalid_credentials(self):
+        clear_users()
+        client: Client = get_client()
+        client.init()
+
+        expected = {"error": "permissions denied"}
+        actual = client.request(
+            {"action": "password", "name": "super", "password": super_password, "new": super_password + "x"}
+        )
+        self.assertEqual(expected, actual)
+
+    def test_password_invalid_password(self):
+        setup_account()
+        client: Client = get_client()
+        client.init()
+
+        expected = {"error": "permissions denied"}
+        actual = client.request({"action": "password", "name": "super", "password": super_password, "new": "x"})
+        self.assertEqual(expected, actual)
+
+    def test_password_successful(self):
+        setup_account()
+        client: Client = get_client()
+        client.init()
+
+        expected = {"success": True}
+        actual = client.request(
+            {"action": "password", "name": "super", "password": super_password, "new": super_password + "x"}
+        )
+        self.assertEqual(expected, actual)
+
+        expected = {"error": "permissions denied"}
+        actual = client.request({"action": "login", "name": "super", "password": super_password})
+        self.assertEqual(expected, actual)
+
+        result = client.request({"action": "login", "name": "super", "password": super_password + "x"})
+        self.assertIsInstance(result, dict)
+        self.assertEqual(["token"], list(result))
+        self.assertTrue(is_uuid(result["token"]))
