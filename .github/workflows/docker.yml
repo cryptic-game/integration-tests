@@ -22,3 +22,5 @@ jobs:
       run: set -x && pip install pipenv && pipenv sync
     - name: Run integration tests
       run: pipenv run test
+    - name: Docker Log
+      run: docker-compose logs -t
