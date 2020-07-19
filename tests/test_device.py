@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from PyCrypCli.client import Client
-from PyCrypCli.exceptions import AlreadyOwnADeviceException
+from PyCrypCli.exceptions import AlreadyOwnADeviceException, DeviceNotFoundException
 
 from database import execute
 from tests.test_server import setup_account, super_password, super_uuid
@@ -51,3 +51,16 @@ class TestDevice(TestCase):
         self.assertEqual(super_uuid, result["owner"])
         self.assertEqual(True, result["powered_on"])
         self.assertTrue(is_uuid(result["uuid"]))
+
+    def test_ping_not_found(self):
+        clear_devices()
+
+        with self.assertRaises(DeviceNotFoundException):
+            self.client.ms("device", ["device", "ping"], device_uuid=device_uuid)
+
+    def test_ping_successful(self):
+        setup_device()
+
+        self.assertEqual({"online": True}, self.client.ms("device", ["device", "ping"], device_uuid=device_uuid))
+        execute("UPDATE device_device SET powered_on=false WHERE uuid=%s", device_uuid)
+        self.assertEqual({"online": False}, self.client.ms("device", ["device", "ping"], device_uuid=device_uuid))
