@@ -14,7 +14,7 @@ super_hash = hashpw(super_password.encode(), gensalt())
 
 
 def clear_users():
-    execute("DELETE FROM user")
+    execute("TRUNCATE user")
 
 
 def setup_account():
@@ -27,7 +27,7 @@ def setup_account():
 
 
 def clear_sessions():
-    execute("DELETE FROM session")
+    execute("TRUNCATE session")
 
 
 def setup_session() -> str:
@@ -236,7 +236,7 @@ class TestServer(TestCase):
 
     def test_settings_get_not_found(self):
         setup_account()
-        execute("DELETE FROM user_settings")
+        execute("TRUNCATE user_settings")
         self.client.login("super", super_password)
 
         expected = {"error": "unknown setting"}
@@ -245,7 +245,7 @@ class TestServer(TestCase):
 
     def test_settings_get_successful(self):
         setup_account()
-        execute("DELETE FROM user_settings")
+        execute("TRUNCATE user_settings")
         execute("INSERT INTO user_settings (user, settingKey, settingValue) VALUES (%s, 'foo', 'bar')", super_uuid)
         self.client.login("super", super_password)
 
@@ -255,7 +255,7 @@ class TestServer(TestCase):
 
     def test_settings_delete_not_found(self):
         setup_account()
-        execute("DELETE FROM user_settings")
+        execute("TRUNCATE user_settings")
         self.client.login("super", super_password)
 
         expected = {"error": "unknown setting"}
@@ -264,7 +264,7 @@ class TestServer(TestCase):
 
     def test_settings_delete_successful(self):
         setup_account()
-        execute("DELETE FROM user_settings")
+        execute("TRUNCATE user_settings")
         execute("INSERT INTO user_settings (user, settingKey, settingValue) VALUES (%s, 'foo', 'bar')", super_uuid)
         self.client.login("super", super_password)
 
