@@ -271,3 +271,12 @@ class TestServer(TestCase):
         expected = {"success": True}
         actual = self.client.request({"action": "setting", "key": "foo", "delete": ""})
         self.assertEqual(expected, actual)
+
+    def test_ms_endpoint_not_found(self):
+        setup_account()
+        self.client.login("super", super_password)
+
+        tag = uuid()
+        expected = {"error": "missing action"}
+        actual = self.client.request({"tag": tag, "ms": "doesntexist", "endpoint": ["test"], "data": {}})
+        self.assertEqual(expected, actual)
