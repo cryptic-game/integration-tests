@@ -2,12 +2,21 @@ from typing import List
 from unittest import TestCase
 
 from PyCrypCli.client import Client
-from PyCrypCli.exceptions import AlreadyOwnADeviceException, DeviceNotFoundException, PermissionDeniedException
+from PyCrypCli.exceptions import (
+    AlreadyOwnADeviceException,
+    DeviceNotFoundException,
+    PermissionDeniedException,
+    MicroserviceException,
+)
 from PyCrypCli.game_objects import Device
 
 from database import execute
 from tests.test_server import setup_account, super_password, super_uuid
 from util import get_client, is_uuid, uuid
+
+
+class DevicePoweredOffException(MicroserviceException):
+    error: str = "device_powered_off"
 
 
 def clear_devices():
@@ -141,3 +150,41 @@ class TestDevice(TestCase):
         expected = {"uuid": device.uuid, "name": device.name, "owner": super_uuid, "powered_on": False}
         actual = self.client.ms("device", ["device", "power"], device_uuid=device.uuid)
         self.assertEqual(expected, actual)
+
+        device.update()
+        self.assertEqual(False, device.powered_on)
+
+        expected = {"uuid": device.uuid, "name": device.name, "owner": super_uuid, "powered_on": True}
+        actual = self.client.ms("device", ["device", "power"], device_uuid=device.uuid)
+        self.assertEqual(expected, actual)
+
+        device.update()
+        self.assertEqual(True, device.powered_on)
+
+    def test_change_name_not_found(self):
+        clear_devices()
+
+        with self.assertRaises(DeviceNotFoundException):
+            self.client.ms("device", ["device", "change_name"], device_uuid=uuid(), name="foobar")
+
+    def test_change_name_permission_denied(self):
+        (device_uuid,) = setup_device(owner=uuid())
+
+        with self.assertRaises(PermissionDeniedException):
+            self.client.ms("device", ["device", "change_name"], device_uuid=device_uuid, name="foobar")
+
+    def test_change_name_powered_off(self):
+        _, device_uuid = setup_device(2)
+
+        with self.assertRaises(DevicePoweredOffException):
+            self.client.ms("device", ["device", "change_name"], device_uuid=device_uuid, name="foobar")
+
+    def test_change_name_successful(self):
+        (device_uuid,) = setup_device()
+
+        expected = {"uuid": device_uuid, "name": "foobar", "owner": super_uuid, "powered_on": True}
+        actual = self.client.ms("device", ["device", "change_name"], device_uuid=device_uuid, name="foobar")
+        self.assertEqual(expected, actual)
+
+        device = Device.get_device(self.client, device_uuid)
+        self.assertEqual("foobar", device.name)
