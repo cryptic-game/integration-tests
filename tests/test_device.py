@@ -210,3 +210,20 @@ class TestDevice(TestCase):
 
         with self.assertRaises(DeviceNotFoundException):
             device.update()
+
+    def test_spot_not_found(self):
+        clear_devices()
+
+        with self.assertRaises(DeviceNotFoundException):
+            self.client.ms("device", ["device", "spot"])
+
+    def test_spot_successful(self):
+        owner = uuid()
+        device_uuids = setup_device(n=5, owner=owner)
+        devices = []
+        for i, x in enumerate(device_uuids):
+            if i % 2 == 0:
+                devices.append({"uuid": x, "name": f"test{i + 1}", "owner": owner, "powered_on": True})
+
+        for _ in range(10):
+            self.assertIn(self.client.ms("device", ["device", "spot"]), devices)
