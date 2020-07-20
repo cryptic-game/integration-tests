@@ -9,21 +9,24 @@ from database import execute
 from tests.test_server import setup_account, super_password, super_uuid
 from util import get_client, is_uuid, uuid
 
-device_uuid = uuid()
-
 
 def clear_devices():
     execute("TRUNCATE device_device")
 
 
-def setup_device():
+def setup_device(n=1) -> List[str]:
     clear_devices()
-    execute(
-        "INSERT INTO device_device (uuid, name, owner, powered_on) VALUES (%s, %s, %s, true)",
-        device_uuid,
-        "test",
-        super_uuid,
-    )
+    out = []
+    for i in range(n):
+        out.append(uuid())
+        execute(
+            "INSERT INTO device_device (uuid, name, owner, powered_on) VALUES (%s, %s, %s, %s)",
+            out[-1],
+            f"test{i + 1}",
+            super_uuid,
+            i % 2 == 0,
+        )
+    return out
 
 
 class TestDevice(TestCase):
@@ -58,10 +61,10 @@ class TestDevice(TestCase):
         clear_devices()
 
         with self.assertRaises(DeviceNotFoundException):
-            self.client.ms("device", ["device", "ping"], device_uuid=device_uuid)
+            self.client.ms("device", ["device", "ping"], device_uuid=uuid())
 
     def test_ping_successful(self):
-        setup_device()
+        (device_uuid,) = setup_device()
 
         self.assertEqual({"online": True}, self.client.ms("device", ["device", "ping"], device_uuid=device_uuid))
         execute("UPDATE device_device SET powered_on=false WHERE uuid=%s", device_uuid)
@@ -71,7 +74,7 @@ class TestDevice(TestCase):
         clear_devices()
 
         with self.assertRaises(DeviceNotFoundException):
-            self.client.ms("device", ["device", "info"], device_uuid=device_uuid)
+            self.client.ms("device", ["device", "info"], device_uuid=uuid())
 
     def test_info_successful(self):
         clear_devices()
@@ -98,3 +101,23 @@ class TestDevice(TestCase):
             self.assertIn(element["hardware_type"], types)
             types.remove(element["hardware_type"])
             self.assertRegex(element["hardware_element"], r"^[a-zA-Z0-9 .-]+$")
+
+    def test_all(self):
+        devices = {x: i for i, x in enumerate(setup_device(3))}
+
+        result = self.client.ms("device", ["device", "all"])
+        self.assertIsInstance(result, dict)
+        self.assertEqual(["devices"], list(result))
+        self.assertIsInstance(result["devices"], list)
+        self.assertEqual(3, len(result["devices"]))
+        for device in result["devices"]:
+            self.assertIsInstance(device, dict)
+            self.assertEqual(["name", "owner", "powered_on", "uuid"], sorted(device))
+            device_uuid = device["uuid"]
+            self.assertTrue(is_uuid(device_uuid))
+            self.assertIn(device_uuid, devices)
+            pos = devices[device_uuid]
+            self.assertEqual(f"test{pos + 1}", device["name"])
+            devices.pop(device_uuid)
+            self.assertEqual(super_uuid, device["owner"])
+            self.assertEqual(pos % 2 == 0, device["powered_on"])
