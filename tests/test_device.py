@@ -2,7 +2,7 @@ from typing import List
 from unittest import TestCase
 
 from PyCrypCli.client import Client
-from PyCrypCli.exceptions import AlreadyOwnADeviceException, DeviceNotFoundException
+from PyCrypCli.exceptions import AlreadyOwnADeviceException, DeviceNotFoundException, PermissionDeniedException
 from PyCrypCli.game_objects import Device
 
 from database import execute
@@ -14,7 +14,7 @@ def clear_devices():
     execute("TRUNCATE device_device")
 
 
-def setup_device(n=1) -> List[str]:
+def setup_device(n=1, owner=super_uuid) -> List[str]:
     clear_devices()
     out = []
     for i in range(n):
@@ -23,7 +23,7 @@ def setup_device(n=1) -> List[str]:
             "INSERT INTO device_device (uuid, name, owner, powered_on) VALUES (%s, %s, %s, %s)",
             out[-1],
             f"test{i + 1}",
-            super_uuid,
+            owner,
             i % 2 == 0,
         )
     return out
@@ -121,3 +121,23 @@ class TestDevice(TestCase):
             devices.pop(device_uuid)
             self.assertEqual(super_uuid, device["owner"])
             self.assertEqual(pos % 2 == 0, device["powered_on"])
+
+    def test_power_not_found(self):
+        clear_devices()
+
+        with self.assertRaises(DeviceNotFoundException):
+            self.client.ms("device", ["device", "power"], device_uuid=uuid())
+
+    def test_power_permission_denied(self):
+        (device_uuid,) = setup_device(owner=uuid())
+
+        with self.assertRaises(PermissionDeniedException):
+            self.client.ms("device", ["device", "power"], device_uuid=device_uuid)
+
+    def test_power_successful(self):
+        clear_devices()
+        device = Device.starter_device(self.client)
+
+        expected = {"uuid": device.uuid, "name": device.name, "owner": super_uuid, "powered_on": False}
+        actual = self.client.ms("device", ["device", "power"], device_uuid=device.uuid)
+        self.assertEqual(expected, actual)
