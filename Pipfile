@@ -7,7 +7,7 @@ verify_ssl = true
 
 [packages]
 coverage = "*"
-pycrypcli = "==1.6.1.dev0"
+pycrypcli = "==1.6.2.dev0"
 pymysql = "*"
 bcrypt = "*"
 

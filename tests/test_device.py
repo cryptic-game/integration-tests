@@ -6,21 +6,24 @@ from PyCrypCli.exceptions import (
     AlreadyOwnADeviceException,
     DeviceNotFoundException,
     PermissionDeniedException,
-    MicroserviceException,
+    DevicePoweredOffException,
+    MaximumDevicesReachedException,
+    ElementPartNotFoundException,
+    PartNotInInventoryException,
+    MissingPartException,
 )
 from PyCrypCli.game_objects import Device
-
 from database import execute
 from tests.test_server import setup_account, super_password, super_uuid
 from util import get_client, is_uuid, uuid
 
 
-class DevicePoweredOffException(MicroserviceException):
-    error: str = "device_powered_off"
-
-
 def clear_devices():
     execute("TRUNCATE device_device")
+
+
+def clear_inventory():
+    execute("TRUNCATE inventory_inventory")
 
 
 def setup_device(n=1, owner=super_uuid) -> List[str]:
@@ -38,6 +41,17 @@ def setup_device(n=1, owner=super_uuid) -> List[str]:
     return out
 
 
+def add_inventory_element(name):
+    element_uuid = uuid()
+    execute(
+        "INSERT INTO inventory_inventory (element_uuid, element_name, related_ms, owner) VALUES (%s, %s, '', %s)",
+        element_uuid,
+        name,
+        super_uuid,
+    )
+    return element_uuid
+
+
 class TestDevice(TestCase):
     @classmethod
     def setUpClass(cls):
@@ -49,6 +63,17 @@ class TestDevice(TestCase):
     def tearDownClass(cls: "TestDevice"):
         cls.client.close()
 
+    def get_starter_configuration(self) -> dict:
+        return self.client.get_hardware_config()["start_pc"]
+
+    def assert_valid_device(self, data: dict):
+        self.assertIsInstance(data, dict)
+        self.assertEqual(["name", "owner", "powered_on", "uuid"], sorted(data))
+        self.assertRegex(data["name"], r"^[a-zA-Z0-9\-_]{1,15}$")
+        self.assertEqual(super_uuid, data["owner"])
+        self.assertEqual(True, data["powered_on"])
+        self.assertTrue(is_uuid(data["uuid"]))
+
     def test_starter_device_failed(self):
         setup_device()
 
@@ -58,13 +83,7 @@ class TestDevice(TestCase):
     def test_starter_device_successful(self):
         clear_devices()
 
-        result = self.client.ms("device", ["device", "starter_device"])
-        self.assertIsInstance(result, dict)
-        self.assertEqual(["name", "owner", "powered_on", "uuid"], sorted(result))
-        self.assertRegex(result["name"], r"^[a-zA-Z0-9\-_]{1,15}$")
-        self.assertEqual(super_uuid, result["owner"])
-        self.assertEqual(True, result["powered_on"])
-        self.assertTrue(is_uuid(result["uuid"]))
+        self.assert_valid_device(self.client.ms("device", ["device", "starter_device"]))
 
     def test_ping_not_found(self):
         clear_devices()
@@ -227,3 +246,81 @@ class TestDevice(TestCase):
 
         for _ in range(10):
             self.assertIn(self.client.ms("device", ["device", "spot"]), devices)
+
+    def test_create_max_devices_reached(self):
+        setup_device(3)
+
+        with self.assertRaises(MaximumDevicesReachedException):
+            self.client.ms(
+                "device",
+                ["device", "create"],
+                gpu=[],
+                cpu=[],
+                mainboard="x",
+                ram=[],
+                disk=[],
+                processorCooler=[],
+                powerPack="x",
+                case="x",
+            )
+
+    def test_create_part_not_found(self):
+        clear_devices()
+
+        config = self.get_starter_configuration()
+        for part in ["mainboard", "powerPack", "case"]:
+            with self.assertRaises(ElementPartNotFoundException) as ctx:
+                self.client.ms("device", ["device", "create"], **{**config, part: "doesntexist123"})
+            exception: ElementPartNotFoundException = ctx.exception
+            self.assertEqual((part,), exception.params)
+        for part in ["cpu", "processorCooler", "gpu", "ram", "disk"]:
+            with self.assertRaises(ElementPartNotFoundException) as ctx:
+                self.client.ms("device", ["device", "create"], **{**config, part: ["doesntexist123"]})
+            exception: ElementPartNotFoundException = ctx.exception
+            self.assertEqual((part,), exception.params)
+
+    def test_create_part_not_in_inventory(self):
+        clear_devices()
+        clear_inventory()
+
+        config = self.get_starter_configuration()
+        for part, name in config.items():
+            if name:
+                add_inventory_element(name[0] if isinstance(name, list) else name)
+
+        for part, name in config.items():
+            if not name:
+                continue
+            name: str = name[0] if isinstance(name, list) else name
+            execute("DELETE FROM inventory_inventory WHERE element_name=%s", name)
+            with self.assertRaises(PartNotInInventoryException) as ctx:
+                self.client.ms("device", ["device", "create"], **config)
+            exception: PartNotInInventoryException = ctx.exception
+            self.assertEqual((part,), exception.params)
+            add_inventory_element(name)
+
+    def test_create_part_not_chosen(self):
+        clear_devices()
+        clear_inventory()
+
+        config = self.get_starter_configuration()
+        for part, name in config.items():
+            if name:
+                add_inventory_element(name[0] if isinstance(name, list) else name)
+
+        for part in ["cpu", "ram", "disk"]:
+            with self.assertRaises(MissingPartException) as ctx:
+                self.client.ms("device", ["device", "create"], **{**config, part: []})
+            exception: MissingPartException = ctx.exception
+            self.assertEqual((part,), exception.params)
+
+    def test_create_successful(self):
+        clear_devices()
+        clear_inventory()
+
+        config = self.get_starter_configuration()
+        for part, name in config.items():
+            if name:
+                add_inventory_element(name[0] if isinstance(name, list) else name)
+
+        self.assert_valid_device(self.client.ms("device", ["device", "create"], **config))
