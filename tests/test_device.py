@@ -188,3 +188,25 @@ class TestDevice(TestCase):
 
         device = Device.get_device(self.client, device_uuid)
         self.assertEqual("foobar", device.name)
+
+    def test_delete_not_found(self):
+        clear_devices()
+
+        with self.assertRaises(DeviceNotFoundException):
+            self.client.ms("device", ["device", "delete"], device_uuid=uuid())
+
+    def test_delete_permission_denied(self):
+        (device_uuid,) = setup_device(owner=uuid())
+
+        with self.assertRaises(PermissionDeniedException):
+            self.client.ms("device", ["device", "delete"], device_uuid=device_uuid)
+
+    def test_delete_successful(self):
+        device = Device.starter_device(self.client)
+
+        expected = {"ok": True}
+        actual = self.client.ms("device", ["device", "delete"], device_uuid=device.uuid)
+        self.assertEqual(expected, actual)
+
+        with self.assertRaises(DeviceNotFoundException):
+            device.update()
