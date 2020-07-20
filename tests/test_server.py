@@ -280,3 +280,22 @@ class TestServer(TestCase):
         expected = {"error": "missing action"}
         actual = self.client.request({"tag": tag, "ms": "doesntexist", "endpoint": ["test"], "data": {}})
         self.assertEqual(expected, actual)
+
+    def test_delete_not_logged_in(self):
+        clear_users()
+        self.client.init()
+
+        expected = {"error": "unknown action"}
+        actual = self.client.request({"action": "delete"})
+        self.assertEqual(expected, actual)
+
+    def test_delete_successful(self):
+        setup_account()
+        self.client.login("super", super_password)
+
+        expected = {"status": "logout"}
+        actual = self.client.request({"action": "delete"})
+        self.assertEqual(expected, actual)
+
+        with self.assertRaises(InvalidLoginException):
+            get_client().login("super", super_password)
