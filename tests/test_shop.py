@@ -11,7 +11,7 @@ from PyCrypCli.exceptions import (
 
 from database import execute
 from tests.test_server import setup_account, super_password, super_uuid
-from util import get_client, uuid
+from util import get_client, uuid, is_uuid
 
 
 def create_wallet(amount=200000, owner=super_uuid):
@@ -101,4 +101,15 @@ class TestShop(TestCase):
         response = self.client.ms(
             "inventory", ["shop", "buy"], products={testing_product: 1}, wallet_uuid=wallet_uuid, key=key
         )
-        self.assertEqual(response["bought_products"][0]["element_name"], testing_product)
+        self.assertIsInstance(response, dict)
+        self.assertEqual(["bought_products"], list(response))
+        bought_products = response["bought_products"]
+        self.assertIsInstance(bought_products, list)
+        self.assertEqual(1, len(bought_products))
+        product = bought_products[0]
+        self.assertIsInstance(product, dict)
+        self.assertEqual(["element_name", "element_uuid", "owner", "related_ms"], sorted(product))
+        self.assertEqual(testing_product, product["element_name"])
+        self.assertTrue(is_uuid(product["element_uuid"]))
+        self.assertEqual(super_uuid, product["owner"])
+        self.assertEqual("device", product["related_ms"])
