@@ -47,9 +47,34 @@ class TestShop(TestCase):
     def tearDownClass(cls: "TestShop"):
         cls.client.close()
 
+    def assert_valid_categories(self, categories, ids):
+        indices = set(range(len(categories)))
+        for name, category in categories.items():
+            self.assertRegex(name, r"^[a-zA-Z0-9. -]{3,}$")
+            self.assertIsInstance(category, dict)
+            self.assertEqual(["categories", "index", "items"], sorted(category))
+            self.assertIn(category["index"], indices)
+            indices.remove(category["index"])
+
+            items = category["items"]
+            self.assertIsInstance(items, dict)
+            for iname, item in items.items():
+                self.assertRegex(iname, r"^[a-zA-Z0-9. -]{3,}$")
+                self.assertIsInstance(item, dict)
+                self.assertEqual(["id", "price", "related_ms"], sorted(item))
+                self.assertNotIn(item["id"], ids)
+                ids.add(item["id"])
+                self.assertGreater(item["price"], 0)
+                self.assertEqual("device", item["related_ms"])
+
+            self.assert_valid_categories(category["categories"], ids)
+        self.assertFalse(indices)
+
     def test_list_successful(self):
-        actual = self.client.ms("inventory", ["shop", "list"])
-        self.assertIsNotNone(actual["categories"]["Cooler"]["items"][testing_product])
+        result = self.client.ms("inventory", ["shop", "list"])
+        self.assertIsInstance(result, dict)
+        self.assertEqual(["categories"], list(result))
+        self.assert_valid_categories(result["categories"], set())
 
     def test_info_not_found(self):
         with self.assertRaises(ItemNotFoundException):
