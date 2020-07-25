@@ -14,19 +14,30 @@ from tests.test_server import setup_account, super_password, super_uuid
 from util import get_client, uuid, is_uuid
 
 
-def create_wallet(amount=200000, owner=super_uuid):
+def create_wallet(amount=200000, n=1, owner=None):
+    if owner is None:
+        owner = [super_uuid]
     clear_wallets()
-    wallet_uuid = uuid()
-    wallet_key = "1234512345"
-    execute(
-        "INSERT INTO currency_wallet (time_stamp, source_uuid, `key`, amount, user_uuid) VALUES (%s, %s, %s, %s, %s)",
-        datetime.now(),
-        wallet_uuid,
-        wallet_key,
-        amount,
-        owner,
-    )
-    return wallet_uuid, wallet_key
+    wallet_uuids = []
+    wallet_keys = []
+    for i in range(n):
+        wallet_uuid = uuid()
+        wallet_key = "1234512345"
+        execute(
+            "INSERT INTO currency_wallet (time_stamp, source_uuid, `key`, amount, user_uuid)"
+            "VALUES (%s, %s, %s, %s, %s)",
+            datetime.now(),
+            wallet_uuid,
+            wallet_key,
+            amount,
+            owner[i],
+        )
+        wallet_uuids.append(wallet_uuid)
+        wallet_keys.append(wallet_key)
+    if n == 1:
+        return wallet_uuids[0], wallet_keys[0]
+    else:
+        return wallet_uuids, wallet_keys
 
 
 def clear_wallets():
