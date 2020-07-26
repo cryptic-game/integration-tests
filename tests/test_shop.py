@@ -26,7 +26,7 @@ def create_wallet(amount=200000, n=1, owner=None):
         execute(
             "INSERT INTO currency_wallet (time_stamp, source_uuid, `key`, amount, user_uuid)"
             "VALUES (%s, %s, %s, %s, %s)",
-            datetime.now(),
+            datetime.utcnow(),
             wallet_uuid,
             wallet_key,
             amount,

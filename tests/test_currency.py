@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest import TestCase
 
 from PyCrypCli.client import Client
@@ -6,17 +6,19 @@ from PyCrypCli.exceptions import (
     UnknownSourceOrDestinationException,
     AlreadyOwnAWalletException,
     PermissionDeniedException,
-    NotEnoughCoinsException
+    NotEnoughCoinsException,
 )
+from PyCrypCli.game_objects import Wallet
 
 from database import execute
 from tests.test_server import setup_account, super_password, super_uuid
-from util import get_client, uuid
+from util import get_client, uuid, is_uuid
 from tests.test_shop import clear_wallets, create_wallet
 
 
 def create_transactions(wallet_uuid, n=1, amount=20):
     clear_transactions()
+    now = datetime.utcnow()
     for i in range(n):
         if i % 2 == 0:
             source_uuid = wallet_uuid
@@ -26,15 +28,16 @@ def create_transactions(wallet_uuid, n=1, amount=20):
             destination_uuid = wallet_uuid
 
         execute(
-            "INSERT INTO currency_transaction(id, time_stamp, source_uuid,send_amount,destination_uuid,`usage`,origin)"
-            " VALUES (%s,%s,%s,%s,%s,%s,%s)",
+            "INSERT INTO currency_transaction "
+            "(id, time_stamp, source_uuid, send_amount, destination_uuid, `usage`, origin) "
+            "VALUES (%s, %s, %s, %s, %s, %s, 0)",
             i + 1,
-            datetime.now(),
+            now + timedelta(minutes=i),
             source_uuid,
             amount,
             destination_uuid,
-            "test transaction " + str(i),
-            0)
+            f"test transaction #{i+1}",
+        )
 
 
 def clear_transactions():
@@ -54,11 +57,14 @@ class TestCurrency(TestCase):
 
     def test_create_wallet_successful(self):
         clear_wallets()
-        expected_keys = ["time_stamp", "source_uuid", "key", "amount", "user_uuid"]
-        actual = self.client.ms("currency", ["create"])
-        self.assertIsInstance(actual, dict)
-        for key in expected_keys:
-            self.assertIn(key, actual)
+        result = self.client.ms("currency", ["create"])
+        self.assertIsInstance(result, dict)
+        self.assertEqual(["amount", "key", "source_uuid", "time_stamp", "user_uuid"], sorted(result))
+        self.assertEqual(0, result["amount"])
+        self.assertRegex(result["key"], r"^[0-9a-f]{10}$")
+        self.assertTrue(is_uuid(result["source_uuid"]))
+        self.assertLess(abs((datetime.utcnow() - datetime.fromisoformat(result["time_stamp"])).total_seconds()), 5)
+        self.assertEqual(super_uuid, result["user_uuid"])
 
     def test_create_wallet_already_own(self):
         create_wallet()
@@ -66,14 +72,18 @@ class TestCurrency(TestCase):
             self.client.ms("currency", ["create"])
 
     def test_get_wallet_successful(self):
-        wallet_uuid, wallet_key = create_wallet()
-        expected_keys = ["time_stamp", "source_uuid", "key", "amount", "user_uuid", "transactions"]
-        actual = self.client.ms("currency", ["get"], source_uuid=wallet_uuid, key=wallet_key)
-        self.assertIsInstance(actual, dict)
-        for key in expected_keys:
-            self.assertIn(key, actual)
-        self.assertEqual(actual["source_uuid"], wallet_uuid)
-        self.assertEqual(actual["key"], wallet_key)
+        wallet_uuid, wallet_key = create_wallet(amount=1337)
+        create_transactions(wallet_uuid, n=3)
+
+        result = self.client.ms("currency", ["get"], source_uuid=wallet_uuid, key=wallet_key)
+        self.assertIsInstance(result, dict)
+        self.assertEqual(["amount", "key", "source_uuid", "time_stamp", "transactions", "user_uuid"], sorted(result))
+        self.assertEqual(1337, result["amount"])
+        self.assertEqual(wallet_key, result["key"])
+        self.assertEqual(wallet_uuid, result["source_uuid"])
+        self.assertLess(abs((datetime.utcnow() - datetime.fromisoformat(result["time_stamp"])).total_seconds()), 5)
+        self.assertEqual(3, result["transactions"])
+        self.assertEqual(super_uuid, result["user_uuid"])
 
     def test_get_wallet_unknown(self):
         wallet_uuid, wallet_key = create_wallet()
@@ -88,14 +98,22 @@ class TestCurrency(TestCase):
             self.client.ms("currency", ["get"], source_uuid=wallet_uuid, key=wallet_key)
 
     def test_send_successful(self):
-        wallet_uuids, wallet_keys = create_wallet(10, 2, [super_uuid, uuid()])
+        wallet_uuids, wallet_keys = create_wallet(amount=10, n=2, owner=[super_uuid, uuid()])
         expected = {"ok": True}
         actual = self.client.ms(
-            "currency", ["send"], source_uuid=wallet_uuids[0], key=wallet_keys[0], send_amount=10,
-            destination_uuid=wallet_uuids[1], usage="test"
+            "currency",
+            ["send"],
+            source_uuid=wallet_uuids[0],
+            key=wallet_keys[0],
+            send_amount=10,
+            destination_uuid=wallet_uuids[1],
+            usage="test",
         )
 
         self.assertEqual(actual, expected)
+
+        self.assertEqual(0, Wallet.get_wallet(self.client, wallet_uuids[0], wallet_keys[0]).amount)
+        self.assertEqual(20, Wallet.get_wallet(self.client, wallet_uuids[1], wallet_keys[1]).amount)
 
     def test_send_unknown(self):
         wallet_uuids, wallet_keys = create_wallet(10, 2, [super_uuid, uuid()])
@@ -103,79 +121,108 @@ class TestCurrency(TestCase):
         # unknown source uuid
         with self.assertRaises(UnknownSourceOrDestinationException):
             self.client.ms(
-                "currency", ["send"], source_uuid=uuid(), key=wallet_keys[0], send_amount=10,
-                destination_uuid=wallet_uuids[1], usage="test"
+                "currency",
+                ["send"],
+                source_uuid=uuid(),
+                key=wallet_keys[0],
+                send_amount=10,
+                destination_uuid=wallet_uuids[1],
+                usage="test",
             )
         # unknown destination_uuid
         with self.assertRaises(UnknownSourceOrDestinationException):
             self.client.ms(
-                "currency", ["send"], source_uuid=wallet_uuids[0], key=wallet_keys[0], send_amount=10,
-                destination_uuid=uuid(), usage="test"
+                "currency",
+                ["send"],
+                source_uuid=wallet_uuids[0],
+                key=wallet_keys[0],
+                send_amount=10,
+                destination_uuid=uuid(),
+                usage="test",
             )
 
     def test_send_permission_denied(self):
         wallet_uuids, wallet_keys = create_wallet(10, 2, [super_uuid, uuid()])
         with self.assertRaises(PermissionDeniedException):
             self.client.ms(
-                "currency", ["send"], source_uuid=wallet_uuids[0], key="5432154321", send_amount=10,
-                destination_uuid=wallet_uuids[1], usage="test"
+                "currency",
+                ["send"],
+                source_uuid=wallet_uuids[0],
+                key="5432154321",
+                send_amount=10,
+                destination_uuid=wallet_uuids[1],
+                usage="test",
             )
 
     def test_send_not_enough_coins(self):
         wallet_uuids, wallet_keys = create_wallet(10, 2, [super_uuid, uuid()])
         with self.assertRaises(NotEnoughCoinsException):
             self.client.ms(
-                "currency", ["send"], source_uuid=wallet_uuids[0], key=wallet_keys[0], send_amount=100,
-                destination_uuid=wallet_uuids[1], usage="test"
+                "currency",
+                ["send"],
+                source_uuid=wallet_uuids[0],
+                key=wallet_keys[0],
+                send_amount=100,
+                destination_uuid=wallet_uuids[1],
+                usage="test",
             )
 
     def test_transactions_successful(self):
-        wallet_uuid, wallet_key = create_wallet(230)
-        create_transactions(wallet_uuid, 10, 23)
-        expected_keys = ["id", "time_stamp", "source_uuid", "send_amount", "destination_uuid", "usage", "origin"]
-        actual = self.client.ms(
+        wallet_uuid, wallet_key = create_wallet(amount=230)
+        now = datetime.utcnow()
+        create_transactions(wallet_uuid, n=10, amount=23)
+        result = self.client.ms(
             "currency", ["transactions"], source_uuid=wallet_uuid, key=wallet_key, count=20, offset=0
         )
 
-        self.assertIsInstance(actual, dict)
-        self.assertIn("transactions", actual)
-        transactions = actual["transactions"]
-        for _ in transactions:
-            for key in expected_keys:
-                self.assertIn(key, actual["transactions"][0])
+        self.assertIsInstance(result, dict)
+        self.assertEqual(["transactions"], list(result))
+        transactions = result["transactions"]
+        self.assertEqual(10, len(transactions))
+        for i, transaction in enumerate(reversed(transactions)):
+            self.assertIsInstance(transaction, dict)
+            self.assertEqual(
+                ["destination_uuid", "id", "origin", "send_amount", "source_uuid", "time_stamp", "usage"],
+                sorted(transaction),
+            )
+            self.assertIn(wallet_uuid, [transaction["source_uuid"], transaction["destination_uuid"]])
+            self.assertGreaterEqual(transaction["id"], 0)
+            self.assertEqual(0, transaction["origin"])
+            self.assertEqual(23, transaction["send_amount"])
+            self.assertEqual(f"test transaction #{i+1}", transaction["usage"])
+
+            expected_timestamp = now + timedelta(minutes=i)
+            actual_timestamp = datetime.fromisoformat(transaction["time_stamp"])
+            self.assertLess(abs((expected_timestamp - actual_timestamp).total_seconds()), 10)
 
     def test_transactions_unknown(self):
         wallet_uuid, wallet_key = create_wallet(230)
         create_transactions(wallet_uuid, 10, 23)
         wallet_uuid = uuid()
         with self.assertRaises(UnknownSourceOrDestinationException):
-            self.client.ms(
-                "currency", ["transactions"], source_uuid=wallet_uuid, key=wallet_key, count=20, offset=0
-            )
+            self.client.ms("currency", ["transactions"], source_uuid=wallet_uuid, key=wallet_key, count=20, offset=0)
 
     def test_transactions_permission_denied(self):
         wallet_uuid, wallet_key = create_wallet(230)
         create_transactions(wallet_uuid, 10, 23)
         wallet_key = "5432154321"
         with self.assertRaises(PermissionDeniedException):
-            self.client.ms(
-                "currency", ["transactions"], source_uuid=wallet_uuid, key=wallet_key, count=20, offset=0
-            )
+            self.client.ms("currency", ["transactions"], source_uuid=wallet_uuid, key=wallet_key, count=20, offset=0)
 
     def test_list_successful(self):
         wallet_uuid, _ = create_wallet(10)
+        expected = {"wallets": [wallet_uuid]}
         actual = self.client.ms("currency", ["list"])
-        self.assertIsInstance(actual, dict)
-        self.assertIn("wallets", actual)
-        wallets = actual["wallets"]
-        for wallet in wallets:
-            self.assertEqual(wallet, wallet_uuid)
+        self.assertEqual(expected, actual)
 
     def test_reset_successful(self):
-        wallet_uuid, _ = create_wallet()
+        wallet_uuid, key = create_wallet()
         expected = {"ok": True}
         actual = self.client.ms("currency", ["reset"], source_uuid=wallet_uuid)
         self.assertEqual(actual, expected)
+
+        with self.assertRaises(UnknownSourceOrDestinationException):
+            Wallet.get_wallet(self.client, wallet_uuid, key)
 
     def test_reset_unknown(self):
         with self.assertRaises(UnknownSourceOrDestinationException):
@@ -191,6 +238,9 @@ class TestCurrency(TestCase):
         expected = {"ok": True}
         actual = self.client.ms("currency", ["delete"], source_uuid=wallet_uuid, key=wallet_key)
         self.assertEqual(actual, expected)
+
+        with self.assertRaises(UnknownSourceOrDestinationException):
+            Wallet.get_wallet(self.client, wallet_uuid, wallet_key)
 
     def test_delete_unknown(self):
         _, wallet_key = create_wallet()
