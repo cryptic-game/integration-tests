@@ -1,5 +1,4 @@
 from typing import List
-from unittest import TestCase
 
 from PyCrypCli.client import Client
 from PyCrypCli.exceptions import (
@@ -13,9 +12,11 @@ from PyCrypCli.exceptions import (
     MissingPartException,
 )
 from PyCrypCli.game_objects import Device
+
 from database import execute
+from testcase import TestCase
 from tests.test_server import setup_account, super_password, super_uuid
-from util import get_client, is_uuid, uuid
+from util import get_client, uuid
 
 
 def clear_devices():
@@ -67,12 +68,11 @@ class TestDevice(TestCase):
         return self.client.get_hardware_config()["start_pc"]
 
     def assert_valid_device(self, data: dict):
-        self.assertIsInstance(data, dict)
-        self.assertEqual(["name", "owner", "powered_on", "uuid"], sorted(data))
+        self.assert_dict_with_keys(data, ["name", "owner", "powered_on", "uuid"])
         self.assertRegex(data["name"], r"^[a-zA-Z0-9\-_]{1,15}$")
         self.assertEqual(super_uuid, data["owner"])
         self.assertEqual(True, data["powered_on"])
-        self.assertTrue(is_uuid(data["uuid"]))
+        self.assert_valid_uuid(data["uuid"])
 
     def test_starter_device_failed(self):
         setup_device()
@@ -110,8 +110,7 @@ class TestDevice(TestCase):
 
         result = self.client.ms("device", ["device", "info"], device_uuid=device.uuid)
 
-        self.assertIsInstance(result, dict)
-        self.assertEqual(["hardware", "name", "owner", "powered_on", "uuid"], sorted(result))
+        self.assert_dict_with_keys(result, ["hardware", "name", "owner", "powered_on", "uuid"])
         self.assertEqual(device.uuid, result["uuid"])
         self.assertEqual(True, result["powered_on"])
         self.assertEqual(super_uuid, result["owner"])
@@ -122,10 +121,9 @@ class TestDevice(TestCase):
         self.assertEqual(7, len(hardware))
         types = {"mainboard", "cpu", "processorCooler", "ram", "disk", "powerPack", "case"}
         for element in hardware:
-            self.assertIsInstance(element, dict)
-            self.assertEqual(["device_uuid", "hardware_element", "hardware_type", "uuid"], sorted(element))
+            self.assert_dict_with_keys(element, ["device_uuid", "hardware_element", "hardware_type", "uuid"])
             self.assertEqual(device.uuid, element["device_uuid"])
-            self.assertTrue(is_uuid(element["uuid"]))
+            self.assert_valid_uuid(element["uuid"])
             self.assertIn(element["hardware_type"], types)
             types.remove(element["hardware_type"])
             self.assertRegex(element["hardware_element"], r"^[a-zA-Z0-9 .-]+$")
@@ -134,15 +132,14 @@ class TestDevice(TestCase):
         devices = {x: i for i, x in enumerate(setup_device(3))}
 
         result = self.client.ms("device", ["device", "all"])
-        self.assertIsInstance(result, dict)
-        self.assertEqual(["devices"], list(result))
+        self.assert_dict_with_keys(result, ["devices"])
         self.assertIsInstance(result["devices"], list)
         self.assertEqual(3, len(result["devices"]))
         for device in result["devices"]:
             self.assertIsInstance(device, dict)
-            self.assertEqual(["name", "owner", "powered_on", "uuid"], sorted(device))
+            self.assert_dict_with_keys(device, ["name", "owner", "powered_on", "uuid"])
             device_uuid = device["uuid"]
-            self.assertTrue(is_uuid(device_uuid))
+            self.assert_valid_uuid(device_uuid)
             self.assertIn(device_uuid, devices)
             pos = devices[device_uuid]
             self.assertEqual(f"test{pos + 1}", device["name"])

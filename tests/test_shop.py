@@ -1,5 +1,4 @@
 from datetime import datetime
-from unittest import TestCase
 
 from PyCrypCli.client import Client
 from PyCrypCli.exceptions import (
@@ -10,8 +9,9 @@ from PyCrypCli.exceptions import (
 )
 
 from database import execute
+from testcase import TestCase
 from tests.test_server import setup_account, super_password, super_uuid
-from util import get_client, uuid, is_uuid
+from util import get_client, uuid
 
 
 def create_wallet(amount=200000, n=1, owner=None):
@@ -83,8 +83,7 @@ class TestShop(TestCase):
 
     def test_list_successful(self):
         result = self.client.ms("inventory", ["shop", "list"])
-        self.assertIsInstance(result, dict)
-        self.assertEqual(["categories"], list(result))
+        self.assert_dict_with_keys(result, ["categories"])
         self.assert_valid_categories(result["categories"], set())
 
     def test_info_not_found(self):
@@ -137,15 +136,13 @@ class TestShop(TestCase):
         response = self.client.ms(
             "inventory", ["shop", "buy"], products={testing_product: 1}, wallet_uuid=wallet_uuid, key=key
         )
-        self.assertIsInstance(response, dict)
-        self.assertEqual(["bought_products"], list(response))
+        self.assert_dict_with_keys(response, ["bought_products"])
         bought_products = response["bought_products"]
         self.assertIsInstance(bought_products, list)
         self.assertEqual(1, len(bought_products))
         product = bought_products[0]
-        self.assertIsInstance(product, dict)
-        self.assertEqual(["element_name", "element_uuid", "owner", "related_ms"], sorted(product))
+        self.assert_dict_with_keys(product, ["element_name", "element_uuid", "owner", "related_ms"])
         self.assertEqual(testing_product, product["element_name"])
-        self.assertTrue(is_uuid(product["element_uuid"]))
+        self.assert_valid_uuid(product["element_uuid"])
         self.assertEqual(super_uuid, product["owner"])
         self.assertEqual("device", product["related_ms"])

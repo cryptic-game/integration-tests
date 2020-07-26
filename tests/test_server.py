@@ -1,12 +1,12 @@
 import time
-from unittest.case import TestCase
 
 from PyCrypCli.client import Client
 from PyCrypCli.exceptions import InvalidLoginException
 from bcrypt import hashpw, gensalt
 
 from database import execute
-from util import get_client, is_uuid, uuid
+from testcase import TestCase
+from util import get_client, uuid
 
 super_uuid = uuid()
 super_password = "Mcl?v&IFZ+1P%ZOj"
@@ -78,9 +78,8 @@ class TestServer(TestCase):
         self.client.init()
 
         result = self.client.request({"action": "register", "name": "super", "password": super_password})
-        self.assertIsInstance(result, dict)
-        self.assertEqual(["token"], list(result))
-        self.assertTrue(is_uuid(result["token"]))
+        self.assert_dict_with_keys(result, ["token"])
+        self.assert_valid_uuid(result["token"])
 
     def test_login_already_logged_in(self):
         setup_account()
@@ -103,9 +102,8 @@ class TestServer(TestCase):
         self.client.init()
 
         result = self.client.request({"action": "login", "name": "super", "password": super_password})
-        self.assertIsInstance(result, dict)
-        self.assertEqual(["token"], list(result))
-        self.assertTrue(is_uuid(result["token"]))
+        self.assert_dict_with_keys(result, ["token"])
+        self.assert_valid_uuid(result["token"])
 
     def test_session_already_logged_in(self):
         setup_account()
@@ -152,8 +150,7 @@ class TestServer(TestCase):
         self.client.init()
 
         result = self.client.request({"action": "status"})
-        self.assertIsInstance(result, dict)
-        self.assertEqual(["online"], list(result))
+        self.assert_dict_with_keys(result, ["online"])
         self.assertGreaterEqual(result["online"], 1)
 
     def test_info_action(self):
@@ -161,8 +158,7 @@ class TestServer(TestCase):
         self.client.login("super", super_password)
 
         result = self.client.request({"action": "info"})
-        self.assertIsInstance(result, dict)
-        self.assertEqual(["created", "last", "name", "online", "uuid"], sorted(result))
+        self.assert_dict_with_keys(result, ["created", "last", "name", "online", "uuid"])
         self.assertLess(abs(result["created"] / 1000 - time.time()), 10)
         self.assertLess(abs(result["last"] / 1000 - time.time()), 2)
         self.assertEqual("super", result["name"])
@@ -208,7 +204,7 @@ class TestServer(TestCase):
         with self.assertRaises(InvalidLoginException):
             self.client.login("super", super_password)
 
-        self.assertTrue(is_uuid(self.client.login("super", super_password + "x")))
+        self.assert_valid_uuid(self.client.login("super", super_password + "x"))
 
     def test_settings_not_logged_in(self):
         clear_users()

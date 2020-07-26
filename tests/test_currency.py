@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from unittest import TestCase
 
 from PyCrypCli.client import Client
 from PyCrypCli.exceptions import (
@@ -11,9 +10,10 @@ from PyCrypCli.exceptions import (
 from PyCrypCli.game_objects import Wallet
 
 from database import execute
+from testcase import TestCase
 from tests.test_server import setup_account, super_password, super_uuid
-from util import get_client, uuid, is_uuid
 from tests.test_shop import clear_wallets, create_wallet
+from util import get_client, uuid
 
 
 def create_transactions(wallet_uuid, n=1, amount=20):
@@ -36,7 +36,7 @@ def create_transactions(wallet_uuid, n=1, amount=20):
             source_uuid,
             amount,
             destination_uuid,
-            f"test transaction #{i+1}",
+            f"test transaction #{i + 1}",
         )
 
 
@@ -58,11 +58,10 @@ class TestCurrency(TestCase):
     def test_create_wallet_successful(self):
         clear_wallets()
         result = self.client.ms("currency", ["create"])
-        self.assertIsInstance(result, dict)
-        self.assertEqual(["amount", "key", "source_uuid", "time_stamp", "user_uuid"], sorted(result))
+        self.assert_dict_with_keys(result, ["amount", "key", "source_uuid", "time_stamp", "user_uuid"])
         self.assertEqual(0, result["amount"])
         self.assertRegex(result["key"], r"^[0-9a-f]{10}$")
-        self.assertTrue(is_uuid(result["source_uuid"]))
+        self.assert_valid_uuid(result["source_uuid"])
         self.assertLess(abs((datetime.utcnow() - datetime.fromisoformat(result["time_stamp"])).total_seconds()), 5)
         self.assertEqual(super_uuid, result["user_uuid"])
 
@@ -76,8 +75,7 @@ class TestCurrency(TestCase):
         create_transactions(wallet_uuid, n=3)
 
         result = self.client.ms("currency", ["get"], source_uuid=wallet_uuid, key=wallet_key)
-        self.assertIsInstance(result, dict)
-        self.assertEqual(["amount", "key", "source_uuid", "time_stamp", "transactions", "user_uuid"], sorted(result))
+        self.assert_dict_with_keys(result, ["amount", "key", "source_uuid", "time_stamp", "transactions", "user_uuid"])
         self.assertEqual(1337, result["amount"])
         self.assertEqual(wallet_key, result["key"])
         self.assertEqual(wallet_uuid, result["source_uuid"])
@@ -129,6 +127,7 @@ class TestCurrency(TestCase):
                 destination_uuid=wallet_uuids[1],
                 usage="test",
             )
+
         # unknown destination_uuid
         with self.assertRaises(UnknownSourceOrDestinationException):
             self.client.ms(
@@ -175,21 +174,18 @@ class TestCurrency(TestCase):
             "currency", ["transactions"], source_uuid=wallet_uuid, key=wallet_key, count=20, offset=0
         )
 
-        self.assertIsInstance(result, dict)
-        self.assertEqual(["transactions"], list(result))
+        self.assert_dict_with_keys(result, ["transactions"])
         transactions = result["transactions"]
         self.assertEqual(10, len(transactions))
         for i, transaction in enumerate(reversed(transactions)):
-            self.assertIsInstance(transaction, dict)
-            self.assertEqual(
-                ["destination_uuid", "id", "origin", "send_amount", "source_uuid", "time_stamp", "usage"],
-                sorted(transaction),
+            self.assert_dict_with_keys(
+                transaction, ["destination_uuid", "id", "origin", "send_amount", "source_uuid", "time_stamp", "usage"],
             )
             self.assertIn(wallet_uuid, [transaction["source_uuid"], transaction["destination_uuid"]])
             self.assertGreaterEqual(transaction["id"], 0)
             self.assertEqual(0, transaction["origin"])
             self.assertEqual(23, transaction["send_amount"])
-            self.assertEqual(f"test transaction #{i+1}", transaction["usage"])
+            self.assertEqual(f"test transaction #{i + 1}", transaction["usage"])
 
             expected_timestamp = now + timedelta(minutes=i)
             actual_timestamp = datetime.fromisoformat(transaction["time_stamp"])
