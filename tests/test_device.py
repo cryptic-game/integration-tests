@@ -92,7 +92,7 @@ class TestDevice(TestCase):
             self.client.ms("device", ["device", "ping"], device_uuid=uuid())
 
     def test_ping_successful(self):
-        (device_uuid,) = setup_device()
+        device_uuid = setup_device()[0]
 
         self.assertEqual({"online": True}, self.client.ms("device", ["device", "ping"], device_uuid=device_uuid))
         execute("UPDATE device_device SET powered_on=false WHERE uuid=%s", device_uuid)
@@ -154,7 +154,7 @@ class TestDevice(TestCase):
             self.client.ms("device", ["device", "power"], device_uuid=uuid())
 
     def test_power_permission_denied(self):
-        (device_uuid,) = setup_device(owner=uuid())
+        device_uuid = setup_device(owner=uuid())[0]
 
         with self.assertRaises(PermissionDeniedException):
             self.client.ms("device", ["device", "power"], device_uuid=device_uuid)
@@ -184,19 +184,19 @@ class TestDevice(TestCase):
             self.client.ms("device", ["device", "change_name"], device_uuid=uuid(), name="foobar")
 
     def test_change_name_permission_denied(self):
-        (device_uuid,) = setup_device(owner=uuid())
+        device_uuid = setup_device(owner=uuid())[0]
 
         with self.assertRaises(PermissionDeniedException):
             self.client.ms("device", ["device", "change_name"], device_uuid=device_uuid, name="foobar")
 
     def test_change_name_powered_off(self):
-        _, device_uuid = setup_device(2)
+        device_uuid = setup_device(2)[1]
 
         with self.assertRaises(DevicePoweredOffException):
             self.client.ms("device", ["device", "change_name"], device_uuid=device_uuid, name="foobar")
 
     def test_change_name_successful(self):
-        (device_uuid,) = setup_device()
+        device_uuid = setup_device()[0]
 
         expected = {"uuid": device_uuid, "name": "foobar", "owner": super_uuid, "powered_on": True}
         actual = self.client.ms("device", ["device", "change_name"], device_uuid=device_uuid, name="foobar")
@@ -212,7 +212,7 @@ class TestDevice(TestCase):
             self.client.ms("device", ["device", "delete"], device_uuid=uuid())
 
     def test_delete_permission_denied(self):
-        (device_uuid,) = setup_device(owner=uuid())
+        device_uuid = setup_device(owner=uuid())[0]
 
         with self.assertRaises(PermissionDeniedException):
             self.client.ms("device", ["device", "delete"], device_uuid=device_uuid)
@@ -316,7 +316,7 @@ class TestDevice(TestCase):
         clear_inventory()
 
         config = self.get_starter_configuration()
-        for part, name in config.items():
+        for _, name in config.items():
             if name:
                 add_inventory_element(name[0] if isinstance(name, list) else name)
 

@@ -141,7 +141,7 @@ class TestCurrency(TestCase):
             )
 
     def test_send_permission_denied(self):
-        wallet_uuids, wallet_keys = create_wallet(10, 2, [super_uuid, uuid()])
+        wallet_uuids, _ = create_wallet(10, 2, [super_uuid, uuid()])
         with self.assertRaises(PermissionDeniedException):
             self.client.ms(
                 "currency",
