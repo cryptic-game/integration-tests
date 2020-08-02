@@ -316,7 +316,7 @@ class TestDevice(TestCase):
         clear_inventory()
 
         config = self.get_starter_configuration()
-        for part, name in config.items():
+        for _, name in config.items():
             if name:
                 add_inventory_element(name[0] if isinstance(name, list) else name)
 
