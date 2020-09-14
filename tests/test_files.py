@@ -21,7 +21,8 @@ from util import get_client, uuid
 
 
 def create_files(device_uuids: List, n=1, is_directory=False, parent_uuid=None, clear_all_files=True) -> List[str]:
-    clear_files(clear_all_files)
+    if clear_all_files:
+        clear_files()
     file_uuids = []
     for device in device_uuids:
         for i in range(n):
@@ -44,9 +45,8 @@ def create_files(device_uuids: List, n=1, is_directory=False, parent_uuid=None, 
     return file_uuids
 
 
-def clear_files(clear):
-    if clear:
-        execute("TRUNCATE device_file")
+def clear_files():
+    execute("TRUNCATE device_file")
 
 
 class TestFiles(TestCase):
@@ -75,14 +75,12 @@ class TestFiles(TestCase):
         self.assertEqual(expected, actual)
 
     def test_info_device_not_found(self):
-        device_uuid = setup_device()
-        file_uuid = create_files(device_uuid)[0]
+        file_uuid = create_files(uuid())[0]
         with self.assertRaises(DeviceNotFoundException):
             self.client.ms("device", ["file", "info"], device_uuid=uuid(), file_uuid=file_uuid)
 
     def test_info_file_not_found(self):
         device_uuid = setup_device()
-        _ = create_files(device_uuid)[0]
         with self.assertRaises(FileNotFoundException):
             self.client.ms("device", ["file", "info"], device_uuid=device_uuid[0], file_uuid=uuid())
 
@@ -93,11 +91,10 @@ class TestFiles(TestCase):
             self.client.ms("device", ["file", "info"], device_uuid=device_uuids[1], file_uuid=file_uuid)
 
     def test_info_permission_denied(self):
-        device_uuid = setup_device()
-        other_device_uuid = setup_device(1, uuid())
-        file_uuid = create_files(device_uuid)[0]
+        other_device_uuid = setup_device(1, uuid())[0]
+        file_uuid = create_files(uuid())[0]
         with self.assertRaises(PermissionDeniedException):
-            self.client.ms("device", ["file", "info"], device_uuid=other_device_uuid[0], file_uuid=file_uuid)
+            self.client.ms("device", ["file", "info"], device_uuid=other_device_uuid, file_uuid=file_uuid)
 
     def test_all_successful(self):
         device_uuid = setup_device()
@@ -116,23 +113,18 @@ class TestFiles(TestCase):
             self.assertEqual(file["content"][:4], "test")
 
     def test_all_device_not_found(self):
-        device_uuid = setup_device()
-        _ = create_files(device_uuid, 5)
         with self.assertRaises(DeviceNotFoundException):
             self.client.ms("device", ["file", "all"], device_uuid=uuid(), parent_dir_uuid=None)
 
     def test_all_device_powered_off(self):
-        device_uuids = setup_device(2)
-        _ = create_files([device_uuids[1]], 5)
+        device_uuids = setup_device(2)[1]
         with self.assertRaises(DevicePoweredOffException):
-            self.client.ms("device", ["file", "all"], device_uuid=device_uuids[1], parent_dir_uuid=None)
+            self.client.ms("device", ["file", "all"], device_uuid=device_uuids, parent_dir_uuid=None)
 
     def test_all_permission_denied(self):
-        device_uuid = setup_device()
-        other_user_device_uuid = setup_device(1, uuid())
-        _ = create_files(device_uuid, 5)
+        other_user_device_uuid = setup_device(1, uuid())[0]
         with self.assertRaises(PermissionDeniedException):
-            self.client.ms("device", ["file", "all"], device_uuid=other_user_device_uuid[0], parent_dir_uuid=None)
+            self.client.ms("device", ["file", "all"], device_uuid=other_user_device_uuid, parent_dir_uuid=None)
 
     def test_update_successful(self):
         device_uuid = setup_device()
@@ -151,17 +143,14 @@ class TestFiles(TestCase):
         self.assertEqual(actual, expected)
 
     def test_update_device_not_found(self):
-        device_uuid = setup_device()
-        file_uuid = create_files(device_uuid)[0]
         with self.assertRaises(DeviceNotFoundException):
-            self.client.ms("device", ["file", "update"], device_uuid=uuid(), file_uuid=file_uuid, content="new Content")
+            self.client.ms("device", ["file", "update"], device_uuid=uuid(), file_uuid=uuid(), content="new Content")
 
     def test_update_file_not_found(self):
-        device_uuid = setup_device()
-        _ = create_files(device_uuid)[0]
+        device_uuid = setup_device()[0]
         with self.assertRaises(FileNotFoundException):
             self.client.ms(
-                "device", ["file", "update"], device_uuid=device_uuid[0], file_uuid=uuid(), content="new Content"
+                "device", ["file", "update"], device_uuid=device_uuid, file_uuid=uuid(), content="new Content"
             )
 
     def test_update_directories_not_updated(self):
@@ -174,22 +163,19 @@ class TestFiles(TestCase):
 
     def test_update_powered_off(self):
         device_uuids = setup_device(2)
-        file_uuid = create_files([device_uuids[1]])[0]
         with self.assertRaises(DevicePoweredOffException):
             self.client.ms(
-                "device", ["file", "update"], device_uuid=device_uuids[1], file_uuid=file_uuid, content="new Content"
+                "device", ["file", "update"], device_uuid=device_uuids[1], file_uuid=uuid(), content="new Content"
             )
 
     def test_update_permission_denied(self):
-        device_uuid = setup_device()
         other_user_device_uuid = setup_device(1, uuid())
-        file_uuid = create_files(device_uuid)[0]
         with self.assertRaises(PermissionDeniedException):
             self.client.ms(
                 "device",
                 ["file", "update"],
                 device_uuid=other_user_device_uuid[0],
-                file_uuid=file_uuid,
+                file_uuid=uuid(),
                 content="new Content",
             )
 
@@ -200,23 +186,18 @@ class TestFiles(TestCase):
         self.assertEqual({"ok": True}, actual)
 
     def test_delete_device_not_found(self):
-        device_uuid = setup_device()
-        file_uuid = create_files(device_uuid)[0]
         with self.assertRaises(DeviceNotFoundException):
-            self.client.ms("device", ["file", "delete"], device_uuid=uuid(), file_uuid=file_uuid)
+            self.client.ms("device", ["file", "delete"], device_uuid=uuid(), file_uuid=uuid())
 
     def test_delete_file_not_found(self):
-        device_uuid = setup_device()
-        _ = create_files(device_uuid)[0]
+        device_uuid = setup_device()[0]
         with self.assertRaises(FileNotFoundException):
-            self.client.ms("device", ["file", "delete"], device_uuid=device_uuid[0], file_uuid=uuid())
+            self.client.ms("device", ["file", "delete"], device_uuid=device_uuid, file_uuid=uuid())
 
     def test_delete_permission_denied(self):
-        device_uuid = setup_device()
         other_user_device_uuid = setup_device(1, uuid())
-        file_uuid = create_files(device_uuid)[0]
         with self.assertRaises(PermissionDeniedException):
-            self.client.ms("device", ["file", "delete"], device_uuid=other_user_device_uuid[0], file_uuid=file_uuid)
+            self.client.ms("device", ["file", "delete"], device_uuid=other_user_device_uuid[0], file_uuid=uuid())
 
     def test_delete_device_powered_off(self):
         device_uuid = setup_device(2)
@@ -345,22 +326,20 @@ class TestFiles(TestCase):
         self.assertEqual(actual["content"], "test1")
 
     def test_move_device_not_found(self):
-        device_uuid = setup_device()
-        file_uuid = create_files(device_uuid)[0]
-        directory_uuid = create_files(device_uuid, 1, True, None, False)[0]
+
+        directory_uuid = create_files(uuid(), 1, True, None, False)[0]
         with self.assertRaises(DeviceNotFoundException):
             self.client.ms(
                 "device",
                 ["file", "move"],
                 device_uuid=uuid(),
-                file_uuid=file_uuid,
+                file_uuid=uuid(),
                 new_parent_dir_uuid=directory_uuid,
                 new_filename="new_filename",
             )
 
     def test_move_file_not_found(self):
         device_uuid = setup_device()
-        _ = create_files(device_uuid)[0]
         directory_uuid = create_files(device_uuid, 1, True, None, False)[0]
         with self.assertRaises(FileNotFoundException):
             self.client.ms(
@@ -389,22 +368,18 @@ class TestFiles(TestCase):
             )
 
     def test_move_permission_denied(self):
-        device_uuid = setup_device()
         other_user_device_uuid = setup_device(1, uuid())
-        file_uuid = create_files(device_uuid)[0]
-        directory_uuid = create_files(device_uuid, 1, True, None, False)[0]
         with self.assertRaises(PermissionDeniedException):
             self.client.ms(
                 "device",
                 ["file", "move"],
                 device_uuid=other_user_device_uuid[0],
-                file_uuid=file_uuid,
-                new_parent_dir_uuid=directory_uuid,
+                file_uuid=uuid(),
+                new_parent_dir_uuid=uuid(),
                 new_filename="test1",
             )
 
     def test_move_cannot_move_into_itself(self):
-        # todo does not work
         device_uuid = setup_device()
         directory_uuid = create_files(device_uuid, 1, True)[0]
         with self.assertRaises(CanNotMoveDirIntoItselfException):
@@ -432,14 +407,12 @@ class TestFiles(TestCase):
 
     def test_move_powered_off(self):
         device_uuid = setup_device(2)
-        file_uuid = create_files([device_uuid[1]])[0]
-        directory_uuid = create_files([device_uuid[1]], 1, True, None, False)[0]
         with self.assertRaises(DevicePoweredOffException):
             self.client.ms(
                 "device",
                 ["file", "move"],
                 device_uuid=device_uuid[1],
-                file_uuid=file_uuid,
-                new_parent_dir_uuid=directory_uuid,
+                file_uuid=uuid(),
+                new_parent_dir_uuid=uuid(),
                 new_filename="new_filename",
             )
