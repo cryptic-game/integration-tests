@@ -10,6 +10,7 @@ from PyCrypCli.exceptions import (
     ElementPartNotFoundException,
     PartNotInInventoryException,
     MissingPartException,
+    MicroserviceException,
 )
 from PyCrypCli.game_objects import Device
 
@@ -52,6 +53,10 @@ def add_inventory_element(name):
         super_uuid,
     )
     return element_uuid
+
+
+class DeviceIsStarterDeviceException(MicroserviceException):
+    error: str = "device_is_starter_device"
 
 
 class TestDevice(TestCase):
@@ -237,7 +242,15 @@ class TestDevice(TestCase):
         with self.assertRaises(PermissionDeniedException):
             self.client.ms("device", ["device", "delete"], device_uuid=device_uuid)
 
+    def test_delete_starter_device(self):
+        clear_devices()
+        device = Device.starter_device(self.client)
+
+        with self.assertRaises(DeviceIsStarterDeviceException):
+            self.client.ms("device", ["device", "delete"], device_uuid=device.uuid)
+
     def test_delete_successful(self):
+        clear_devices()
         device = Device.starter_device(self.client)
         execute("UPDATE device_device SET starter_device=FALSE WHERE uuid=%s", device.uuid)
 
