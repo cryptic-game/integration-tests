@@ -27,17 +27,18 @@ def clear_inventory():
     execute("TRUNCATE inventory_inventory")
 
 
-def setup_device(n=1, owner=super_uuid) -> List[str]:
+def setup_device(n=1, owner=super_uuid, starter_device=False) -> List[str]:
     clear_devices()
     out = []
     for i in range(n):
         out.append(uuid())
         execute(
-            "INSERT INTO device_device (uuid, name, owner, powered_on) VALUES (%s, %s, %s, %s)",
+            "INSERT INTO device_device (uuid, name, owner, powered_on, starter_device) VALUES (%s, %s, %s, %s, %s)",
             out[-1],
             f"test{i + 1}",
             owner,
             i % 2 == 0,
+            starter_device and i == 0,
         )
     return out
 
@@ -67,12 +68,13 @@ class TestDevice(TestCase):
     def get_starter_configuration(self) -> dict:
         return self.client.get_hardware_config()["start_pc"]
 
-    def assert_valid_device(self, data: dict):
-        self.assert_dict_with_keys(data, ["name", "owner", "powered_on", "uuid"])
+    def assert_valid_device(self, data: dict, starter_device: bool):
+        self.assert_dict_with_keys(data, ["name", "owner", "powered_on", "uuid", "starter_device"])
         self.assertRegex(data["name"], r"^[a-zA-Z0-9\-_]{1,15}$")
         self.assertEqual(super_uuid, data["owner"])
         self.assertEqual(True, data["powered_on"])
         self.assert_valid_uuid(data["uuid"])
+        self.assertEqual(starter_device, data["starter_device"])
 
     def test_starter_device_failed(self):
         setup_device()
@@ -83,7 +85,7 @@ class TestDevice(TestCase):
     def test_starter_device_successful(self):
         clear_devices()
 
-        self.assert_valid_device(self.client.ms("device", ["device", "starter_device"]))
+        self.assert_valid_device(self.client.ms("device", ["device", "starter_device"]), True)
 
     def test_ping_not_found(self):
         clear_devices()
@@ -110,7 +112,7 @@ class TestDevice(TestCase):
 
         result = self.client.ms("device", ["device", "info"], device_uuid=device.uuid)
 
-        self.assert_dict_with_keys(result, ["hardware", "name", "owner", "powered_on", "uuid"])
+        self.assert_dict_with_keys(result, ["hardware", "name", "owner", "powered_on", "uuid", "starter_device"])
         self.assertEqual(device.uuid, result["uuid"])
         self.assertEqual(True, result["powered_on"])
         self.assertEqual(super_uuid, result["owner"])
@@ -137,7 +139,7 @@ class TestDevice(TestCase):
         self.assertEqual(3, len(result["devices"]))
         for device in result["devices"]:
             self.assertIsInstance(device, dict)
-            self.assert_dict_with_keys(device, ["name", "owner", "powered_on", "uuid"])
+            self.assert_dict_with_keys(device, ["name", "owner", "powered_on", "uuid", "starter_device"])
             device_uuid = device["uuid"]
             self.assert_valid_uuid(device_uuid)
             self.assertIn(device_uuid, devices)
@@ -163,14 +165,26 @@ class TestDevice(TestCase):
         clear_devices()
         device = Device.starter_device(self.client)
 
-        expected = {"uuid": device.uuid, "name": device.name, "owner": super_uuid, "powered_on": False}
+        expected = {
+            "uuid": device.uuid,
+            "name": device.name,
+            "owner": super_uuid,
+            "powered_on": False,
+            "starter_device": True,
+        }
         actual = self.client.ms("device", ["device", "power"], device_uuid=device.uuid)
         self.assertEqual(expected, actual)
 
         device.update()
         self.assertEqual(False, device.powered_on)
 
-        expected = {"uuid": device.uuid, "name": device.name, "owner": super_uuid, "powered_on": True}
+        expected = {
+            "uuid": device.uuid,
+            "name": device.name,
+            "owner": super_uuid,
+            "powered_on": True,
+            "starter_device": True,
+        }
         actual = self.client.ms("device", ["device", "power"], device_uuid=device.uuid)
         self.assertEqual(expected, actual)
 
@@ -198,7 +212,13 @@ class TestDevice(TestCase):
     def test_change_name_successful(self):
         device_uuid = setup_device()[0]
 
-        expected = {"uuid": device_uuid, "name": "foobar", "owner": super_uuid, "powered_on": True}
+        expected = {
+            "uuid": device_uuid,
+            "name": "foobar",
+            "owner": super_uuid,
+            "powered_on": True,
+            "starter_device": False,
+        }
         actual = self.client.ms("device", ["device", "change_name"], device_uuid=device_uuid, name="foobar")
         self.assertEqual(expected, actual)
 
@@ -219,6 +239,7 @@ class TestDevice(TestCase):
 
     def test_delete_successful(self):
         device = Device.starter_device(self.client)
+        execute("UPDATE device_device SET starter_device=FALSE WHERE uuid=%s", device.uuid)
 
         expected = {"ok": True}
         actual = self.client.ms("device", ["device", "delete"], device_uuid=device.uuid)
@@ -239,7 +260,9 @@ class TestDevice(TestCase):
         devices = []
         for i, x in enumerate(device_uuids):
             if i % 2 == 0:
-                devices.append({"uuid": x, "name": f"test{i + 1}", "owner": owner, "powered_on": True})
+                devices.append(
+                    {"uuid": x, "name": f"test{i + 1}", "owner": owner, "powered_on": True, "starter_device": False}
+                )
 
         for _ in range(10):
             self.assertIn(self.client.ms("device", ["device", "spot"]), devices)
@@ -320,4 +343,4 @@ class TestDevice(TestCase):
             if name:
                 add_inventory_element(name[0] if isinstance(name, list) else name)
 
-        self.assert_valid_device(self.client.ms("device", ["device", "create"], **config))
+        self.assert_valid_device(self.client.ms("device", ["device", "create"], **config), False)
