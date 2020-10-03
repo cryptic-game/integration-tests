@@ -1,6 +1,10 @@
 from pymysql import connect, Connection
 
-db: Connection = connect(host="127.0.0.1", user="cryptic", password="cryptic", db="cryptic", charset="utf8mb4")
+from environment import DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE
+
+db: Connection = connect(
+    host=DB_HOST, port=DB_PORT, user=DB_USERNAME, password=DB_PASSWORD, db=DB_DATABASE, charset="utf8mb4"
+)
 
 
 def query(sql, *args) -> dict:
