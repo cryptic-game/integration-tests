@@ -34,10 +34,7 @@ def create_wallet(amount=200000, n=1, owner=None):
         )
         wallet_uuids.append(wallet_uuid)
         wallet_keys.append(wallet_key)
-    if n == 1:
-        return wallet_uuids[0], wallet_keys[0]
-    else:
-        return wallet_uuids, wallet_keys
+    return (wallet_uuids[0], wallet_keys[0]) if n == 1 else (wallet_uuids, wallet_keys)
 
 
 def clear_wallets():
