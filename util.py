@@ -2,9 +2,11 @@ from uuid import uuid4
 
 from PyCrypCli.client import Client
 
+from environment import SERVER_LOCATION
+
 
 def get_client() -> Client:
-    return Client("ws://127.0.0.1:8080")
+    return Client(SERVER_LOCATION)
 
 
 def uuid() -> str:
