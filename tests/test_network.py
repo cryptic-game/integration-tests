@@ -10,7 +10,7 @@ from PyCrypCli.exceptions import (
     MicroserviceException,
     NameAlreadyInUseException,
     NetworkNotFoundException,
-    NoPermissionsException
+    NoPermissionsException,
 )
 
 from database import execute
@@ -29,30 +29,29 @@ def create_network(owner, hidden=False, n=1):
     network_uuids = []
     for i in range(n):
         network_uuids.append(uuid())
-        execute("INSERT INTO network_network (uuid, hidden, name, owner) "
-                "VALUES (%s, %s, %s, %s)",
-                network_uuids[-1],
-                hidden,
-                f"test_network#{i + 1}",
-                owner)
+        execute(
+            "INSERT INTO network_network (uuid, hidden, name, owner) " "VALUES (%s, %s, %s, %s)",
+            network_uuids[-1],
+            hidden,
+            f"test_network#{i + 1}",
+            owner,
+        )
     return network_uuids
 
 
 def join_network(deviceuuid, networkuuid):
-    execute("INSERT INTO network_member (uuid, device, network) VALUES (%s,%s,%s)",
-            uuid(),
-            deviceuuid,
-            networkuuid
-            )
+    execute("INSERT INTO network_member (uuid, device, network) VALUES (%s,%s,%s)", uuid(), deviceuuid, networkuuid)
 
 
 def create_invitation(device, network, request=False):
     invitation_uuid = uuid()
-    execute("INSERT INTO network_invitation (uuid, device, network, request) VALUES (%s,%s,%s,%s)",
-            invitation_uuid,
-            device,
-            network,
-            request)
+    execute(
+        "INSERT INTO network_invitation (uuid, device, network, request) VALUES (%s,%s,%s,%s)",
+        invitation_uuid,
+        device,
+        network,
+        request,
+    )
 
     return invitation_uuid
 
@@ -64,7 +63,6 @@ def clear_networks():
 
 
 class TestNetwork(TestCase):
-
     @classmethod
     def setUpClass(cls):
         setup_account()
@@ -78,12 +76,7 @@ class TestNetwork(TestCase):
     def test_name_successful(self):
         device_uuid = setup_device()[0]
         network_uuid = create_network(device_uuid)[0]
-        expected = {
-            "uuid": network_uuid,
-            "hidden": False,
-            "owner": device_uuid,
-            "name": "test_network#1"
-        }
+        expected = {"uuid": network_uuid, "hidden": False, "owner": device_uuid, "name": "test_network#1"}
 
         actual = self.client.ms("network", ["name"], name="test_network#1")
         self.assertEqual(actual, expected)
@@ -95,12 +88,7 @@ class TestNetwork(TestCase):
     def test_get_successful(self):
         device_uuid = setup_device()[0]
         network_uuid = create_network(device_uuid)[0]
-        expected = {
-            "uuid": network_uuid,
-            "hidden": False,
-            "owner": device_uuid,
-            "name": "test_network#1"
-        }
+        expected = {"uuid": network_uuid, "hidden": False, "owner": device_uuid, "name": "test_network#1"}
 
         actual = self.client.ms("network", ["get"], uuid=network_uuid)
         self.assertEqual(actual, expected)
