@@ -245,7 +245,7 @@ class TestNetwork(TestCase):
 
     def test_owner_successful(self):
         device_uuid = setup_device()[0]
-        create_network(device_uuid)[0]
+        create_network(device_uuid)
         actual = self.client.ms("network", ["owner"], device=device_uuid)
         self.assert_dict_with_keys(actual, ["networks"])
         for network in actual["networks"]:
