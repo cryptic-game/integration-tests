@@ -10,7 +10,7 @@ from PyCrypCli.exceptions import (
     ElementPartNotFoundException,
     PartNotInInventoryException,
     MissingPartException,
-    MicroserviceException,
+    DeviceIsStarterDeviceException,
 )
 from PyCrypCli.game_objects import Device
 
@@ -53,10 +53,6 @@ def add_inventory_element(name):
         super_uuid,
     )
     return element_uuid
-
-
-class DeviceIsStarterDeviceException(MicroserviceException):
-    error: str = "device_is_starter_device"
 
 
 class TestDevice(TestCase):
@@ -305,12 +301,12 @@ class TestDevice(TestCase):
             with self.assertRaises(ElementPartNotFoundException) as ctx:
                 self.client.ms("device", ["device", "create"], **{**config, part: "doesntexist123"})
             exception: ElementPartNotFoundException = ctx.exception
-            self.assertEqual((part,), exception.params)
+            self.assertEqual([part], exception.params)
         for part in ["cpu", "processorCooler", "gpu", "ram", "disk"]:
             with self.assertRaises(ElementPartNotFoundException) as ctx:
                 self.client.ms("device", ["device", "create"], **{**config, part: ["doesntexist123"]})
             exception: ElementPartNotFoundException = ctx.exception
-            self.assertEqual((part,), exception.params)
+            self.assertEqual([part], exception.params)
 
     def test_create_part_not_in_inventory(self):
         clear_devices()
@@ -329,7 +325,7 @@ class TestDevice(TestCase):
             with self.assertRaises(PartNotInInventoryException) as ctx:
                 self.client.ms("device", ["device", "create"], **config)
             exception: PartNotInInventoryException = ctx.exception
-            self.assertEqual((part,), exception.params)
+            self.assertEqual([part], exception.params)
             add_inventory_element(name)
 
     def test_create_part_not_chosen(self):
@@ -345,7 +341,7 @@ class TestDevice(TestCase):
             with self.assertRaises(MissingPartException) as ctx:
                 self.client.ms("device", ["device", "create"], **{**config, part: []})
             exception: MissingPartException = ctx.exception
-            self.assertEqual((part,), exception.params)
+            self.assertEqual([part], exception.params)
 
     def test_create_successful(self):
         clear_devices()
