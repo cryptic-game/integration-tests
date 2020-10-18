@@ -11,7 +11,8 @@ from PyCrypCli.exceptions import (
     ServiceCannotBeUsedException,
     ServiceNotFoundException,
     ServiceNotSupportedException,
-    WalletNotFoundException)
+    WalletNotFoundException,
+)
 
 from database import execute
 from testcase import TestCase
@@ -27,16 +28,17 @@ def create_service(device=uuid(), name="telnet", n=1, part_owner=None, owner=sup
     service_uuids = []
     for i in range(n):
         service_uuids.append(uuid())
-        execute("INSERT INTO service_service(uuid, device, owner, name, running,running_port, part_owner)" +
-                "VALUES (%s,%s,%s,%s,%s,%s,%s)",
-                service_uuids[i],
-                device,
-                owner,
-                name,
-                i % 2 == 0,
-                1337,
-                part_owner
-                )
+        execute(
+            "INSERT INTO service_service(uuid, device, owner, name, running,running_port, part_owner)"
+            + "VALUES (%s,%s,%s,%s,%s,%s,%s)",
+            service_uuids[i],
+            device,
+            owner,
+            name,
+            i % 2 == 0,
+            1337,
+            part_owner,
+        )
 
     return service_uuids
 
@@ -86,8 +88,9 @@ class TestService(TestCase):
         device_uuids = setup_device(3)
         service_uuid = create_service(device_uuids[0], "portscan")[0]
         service_uuid_target = create_service(device_uuids[2], clear_service=False)[0]
-        actual = self.client.ms("service", ["use"], device_uuid=device_uuids[0], service_uuid=service_uuid,
-                                target_device=device_uuids[2])
+        actual = self.client.ms(
+            "service", ["use"], device_uuid=device_uuids[0], service_uuid=service_uuid, target_device=device_uuids[2]
+        )
         self.assert_dict_with_keys(actual, ["services"])
         for service in actual["services"]:
             self.assertEqual(service["running_port"], 1337)
@@ -109,8 +112,7 @@ class TestService(TestCase):
         device_uuid = uuid()
         service_uuid = create_service(device_uuid, name="portscan")[0]
         with self.assertRaises(DeviceNotFoundException):
-            self.client.ms("service", ["use"], device_uuid=device_uuid, service_uuid=service_uuid,
-                           target_device=uuid())
+            self.client.ms("service", ["use"], device_uuid=device_uuid, service_uuid=service_uuid, target_device=uuid())
 
     def test_use_permission_denied(self):
         device_uuid = setup_device(owner=uuid())[0]
@@ -122,7 +124,9 @@ class TestService(TestCase):
         device_uuid = setup_device()[0]
         service_uuid = create_service(device_uuid)[0]
         with self.assertRaises(ServiceCannotBeUsedException):
-            self.client.ms("service", ["use"], device_uuid=device_uuid, service_uuid=service_uuid, )
+            self.client.ms(
+                "service", ["use"], device_uuid=device_uuid, service_uuid=service_uuid,
+            )
 
     def test_use_invalid_request(self):
         device_uuid = setup_device()[0]
@@ -135,7 +139,8 @@ class TestService(TestCase):
         service_uuid = create_service(device_uuid)[0]
         actual = self.client.ms("service", ["private_info"], device_uuid=device_uuid, service_uuid=service_uuid)
         self.assert_dict_with_keys(
-            actual, ["running", "owner", "running_port", "name", "uuid", "device", "speed", "part_owner"])
+            actual, ["running", "owner", "running_port", "name", "uuid", "device", "speed", "part_owner"]
+        )
         self.assertTrue(actual["running"])
         self.assertEqual(actual["owner"], super_uuid)
         self.assertEqual(actual["running_port"], 1337)
@@ -172,11 +177,11 @@ class TestService(TestCase):
         service_uuid = create_service(device_uuid)[0]
         actual = self.client.ms("service", ["toggle"], device_uuid=device_uuid, service_uuid=service_uuid)
         self.assertFalse(actual["running"])
-        self.assertEqual(actual["owner"],super_uuid)
-        self.assertEqual(actual["running_port"],1337)
-        self.assertEqual(actual["name"],"telnet")
-        self.assertEqual(actual["uuid"],service_uuid)
-        self.assertEqual(actual["device"],device_uuid)
+        self.assertEqual(actual["owner"], super_uuid)
+        self.assertEqual(actual["running_port"], 1337)
+        self.assertEqual(actual["name"], "telnet")
+        self.assertEqual(actual["uuid"], service_uuid)
+        self.assertEqual(actual["device"], device_uuid)
         self.assertIsNone(actual["speed"])
         self.assertIsNone(actual["part_owner"])
 
@@ -328,9 +333,9 @@ class TestService(TestCase):
     def test_part_owner_access(self):
         device_uuid = setup_device(owner=uuid())[0]
         _ = create_service(device_uuid, part_owner=super_uuid)[0]
-        expected={"ok":True}
+        expected = {"ok": True}
         actual = self.client.ms("service", ["part_owner"], device_uuid=device_uuid)
-        self.assertEqual(expected,actual)
+        self.assertEqual(expected, actual)
 
     def test_part_owner_no_access(self):
         device_uuid = setup_device(owner=uuid())[0]
