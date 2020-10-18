@@ -20,7 +20,7 @@ from tests.test_server import setup_account, super_password, super_uuid
 from util import get_client, uuid
 
 
-def create_service(device=uuid(), name="test service", n=1, part_owner=None, owner=super_uuid, clear_service=True):
+def create_service(device=uuid(), name="telnet", n=1, part_owner=None, owner=super_uuid, clear_service=True):
     if clear_service:
         clear_services()
 
@@ -59,13 +59,12 @@ class TestService(TestCase):
     def test_public_info_successful(self):
         device_uuid = setup_device()[0]
         service_uuid = create_service(device_uuid)[0]
-        print(device_uuid)
         actual = self.client.ms("service", ["public_info"], device_uuid=device_uuid, service_uuid=service_uuid)
         self.assert_dict_with_keys(actual, ["running_port", "name", "uuid", "device"])
         self.assertEqual(actual["device"], device_uuid)
         self.assertEqual(actual["uuid"], service_uuid)
         self.assertEqual(actual["running_port"], 1337)
-        self.assertEqual(actual["name"], "test service")
+        self.assertEqual(actual["name"], "telnet")
 
     def test_public_info_service_not_found(self):
         with self.assertRaises(ServiceNotFoundException):
@@ -92,7 +91,7 @@ class TestService(TestCase):
         self.assert_dict_with_keys(actual, ["services"])
         for service in actual["services"]:
             self.assertEqual(service["running_port"], 1337)
-            self.assertEqual(service["name"], "test service")
+            self.assertEqual(service["name"], "telnet")
             self.assertEqual(service["uuid"], service_uuid_target)
             self.assertEqual(service["device"], device_uuids[2])
 
@@ -140,7 +139,7 @@ class TestService(TestCase):
         self.assertTrue(actual["running"])
         self.assertEqual(actual["owner"], super_uuid)
         self.assertEqual(actual["running_port"], 1337)
-        self.assertEqual(actual["name"], "test service")
+        self.assertEqual(actual["name"], "telnet")
         self.assertEqual(actual["uuid"], service_uuid)
         self.assertEqual(actual["device"], device_uuid)
         self.assertIsNone(actual["speed"])
@@ -172,7 +171,14 @@ class TestService(TestCase):
         device_uuid = setup_device()[0]
         service_uuid = create_service(device_uuid)[0]
         actual = self.client.ms("service", ["toggle"], device_uuid=device_uuid, service_uuid=service_uuid)
-        print(actual)
+        self.assertFalse(actual["running"])
+        self.assertEqual(actual["owner"],super_uuid)
+        self.assertEqual(actual["running_port"],1337)
+        self.assertEqual(actual["name"],"telnet")
+        self.assertEqual(actual["uuid"],service_uuid)
+        self.assertEqual(actual["device"],device_uuid)
+        self.assertIsNone(actual["speed"])
+        self.assertIsNone(actual["part_owner"])
 
     def test_toggle_service_not_found(self):
         with self.assertRaises(ServiceNotFoundException):
@@ -252,7 +258,7 @@ class TestService(TestCase):
             self.assertIsInstance(service["running"], bool)
             self.assertEqual(service["owner"], super_uuid)
             self.assertEqual(service["running_port"], 1337)
-            self.assertEqual(service["name"], "test service")
+            self.assertEqual(service["name"], "telnet")
             self.assertIn(service["uuid"], service_uuids)
             self.assertEqual(service["device"], device_uuid)
             self.assertIsNone(service["speed"])
@@ -322,8 +328,9 @@ class TestService(TestCase):
     def test_part_owner_access(self):
         device_uuid = setup_device(owner=uuid())[0]
         _ = create_service(device_uuid, part_owner=super_uuid)[0]
+        expected={"ok":True}
         actual = self.client.ms("service", ["part_owner"], device_uuid=device_uuid)
-        print(actual)
+        self.assertEqual(expected,actual)
 
     def test_part_owner_no_access(self):
         device_uuid = setup_device(owner=uuid())[0]
@@ -349,7 +356,7 @@ class TestService(TestCase):
             self.assertIsInstance(service["running"], bool)
             self.assert_valid_uuid(service["owner"])
             self.assertEqual(service["running_port"], 1337)
-            self.assertEqual(service["name"], "test service")
+            self.assertEqual(service["name"], "telnet")
             self.assertIn(service["uuid"], service_uuids)
             self.assert_valid_uuid(service["device"])
             self.assertIsNone(service["speed"])
