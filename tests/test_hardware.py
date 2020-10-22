@@ -15,15 +15,18 @@ from util import get_client, uuid
 ELEMENT_TYPES = ["mainboard", "cpu", "ram", "gpu", "disk", "processorCooler", "powerPack", "case"]
 
 
-def setup_workload() -> str:
-    clear_devices()
+def setup_workload(device_uuid=None,clear_device=True) -> str:
+    if(clear_device):
+        clear_devices()
+    if device_uuid is None:
+        device_uuid=uuid()
     execute("TRUNCATE device_workload")
     execute(
         "INSERT INTO device_workload "
         "(uuid, performance_cpu, performance_gpu, performance_ram, performance_disk, performance_network, "
         "usage_cpu, usage_gpu, usage_ram, usage_disk, usage_network) VALUES "
         "(%s, 10, 20, 40, 80, 160, 1, 4, 16, 64, 256)",
-        device_uuid := uuid(),
+        device_uuid ,
     )
     return device_uuid
 
