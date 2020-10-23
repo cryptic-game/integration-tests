@@ -7,7 +7,7 @@ from PyCrypCli.exceptions import (
     MicroserviceException,
     PermissionDeniedException,
     ServiceNotFoundException,
-    ServiceNotRunningException
+    ServiceNotRunningException,
 )
 
 from database import execute
@@ -31,7 +31,7 @@ def create_bruteforce_service(service_uuid, target_device, target_service, start
         started,
         target_service,
         target_device,
-        1
+        1,
     )
 
 
@@ -53,50 +53,75 @@ class TestBruteforce(TestCase):
     def test_bruteforce_attack_successful(self):
         random_owner = uuid()
         device_uuid = setup_device()[0]
-        _ = setup_workload(device_uuid, clear_device=False)
+        setup_workload(device_uuid, clear_device=False)
         target_device = setup_device(owner=random_owner, clear_device=False)[0]
         service_uuid = create_service(device_uuid, name="bruteforce", n=2, speed=1.0)[1]
         target_service = create_service(target_device, clear_service=False, speed=1.0)[0]
         create_bruteforce_service(service_uuid, target_device, target_service, True)
 
         expected = {"ok": True}
-        actual = self.client.ms("service", ["bruteforce", "attack"], device_uuid=device_uuid,
-                                service_uuid=service_uuid, target_device=target_device,
-                                target_service=target_service)
+        actual = self.client.ms(
+            "service",
+            ["bruteforce", "attack"],
+            device_uuid=device_uuid,
+            service_uuid=service_uuid,
+            target_device=target_device,
+            target_service=target_service,
+        )
         self.assertEqual(expected, actual)
 
     def test_bruteforce_attack_service_not_found(self):
         with self.assertRaises(ServiceNotFoundException):
-            self.client.ms("service", ["bruteforce", "attack"], device_uuid=uuid(),
-                           service_uuid=uuid(), target_device=uuid(),
-                           target_service=uuid())
+            self.client.ms(
+                "service",
+                ["bruteforce", "attack"],
+                device_uuid=uuid(),
+                service_uuid=uuid(),
+                target_device=uuid(),
+                target_service=uuid(),
+            )
 
     def test_bruteforce_attack_device_not_found(self):
         device_uuid = uuid()
         service_uuid = create_service(device_uuid, name="bruteforce", n=2, speed=0.0)[1]
 
         with self.assertRaises(DeviceNotFoundException):
-            self.client.ms("service", ["bruteforce", "attack"], device_uuid=device_uuid,
-                           service_uuid=service_uuid, target_device=uuid(),
-                           target_service=uuid())
+            self.client.ms(
+                "service",
+                ["bruteforce", "attack"],
+                device_uuid=device_uuid,
+                service_uuid=service_uuid,
+                target_device=uuid(),
+                target_service=uuid(),
+            )
 
     def test_bruteforce_attack_device_powered_off(self):
         device_uuid = setup_device(2)[1]
         service_uuid = create_service(device_uuid, name="bruteforce", n=2, speed=0.0)[1]
 
         with self.assertRaises(DeviceNotOnlineException):
-            self.client.ms("service", ["bruteforce", "attack"], device_uuid=device_uuid,
-                           service_uuid=service_uuid, target_device=uuid(),
-                           target_service=uuid())
+            self.client.ms(
+                "service",
+                ["bruteforce", "attack"],
+                device_uuid=device_uuid,
+                service_uuid=service_uuid,
+                target_device=uuid(),
+                target_service=uuid(),
+            )
 
     def test_bruteforce_attack_permission_denied(self):
         device_uuid = setup_device(owner=uuid())[0]
         service_uuid = create_service(device_uuid, name="bruteforce", n=2, speed=0.0)[1]
 
         with self.assertRaises(PermissionDeniedException):
-            self.client.ms("service", ["bruteforce", "attack"], device_uuid=device_uuid,
-                           service_uuid=service_uuid, target_device=uuid(),
-                           target_service=uuid())
+            self.client.ms(
+                "service",
+                ["bruteforce", "attack"],
+                device_uuid=device_uuid,
+                service_uuid=service_uuid,
+                target_device=uuid(),
+                target_service=uuid(),
+            )
 
     def test_bruteforce_attack_service_not_running(self):
         device_uuid = setup_device()[0]
@@ -105,18 +130,28 @@ class TestBruteforce(TestCase):
         target_service = create_service(target_device, n=2, clear_service=False)[1]
 
         with self.assertRaises(ServiceNotRunningException):
-            self.client.ms("service", ["bruteforce", "attack"], device_uuid=device_uuid,
-                           service_uuid=service_uuid, target_device=target_device,
-                           target_service=target_service)
+            self.client.ms(
+                "service",
+                ["bruteforce", "attack"],
+                device_uuid=device_uuid,
+                service_uuid=service_uuid,
+                target_device=target_device,
+                target_service=target_service,
+            )
 
     def test_bruteforce_attack_already_running(self):
         device_uuid = setup_device()[0]
         service_uuid = create_service(device_uuid, name="bruteforce", n=1, speed=1.0)[0]
 
         with self.assertRaises(AttackAlreadyRunning):
-            self.client.ms("service", ["bruteforce", "attack"], device_uuid=device_uuid,
-                           service_uuid=service_uuid, target_device=uuid(),
-                           target_service=uuid())
+            self.client.ms(
+                "service",
+                ["bruteforce", "attack"],
+                device_uuid=device_uuid,
+                service_uuid=service_uuid,
+                target_device=uuid(),
+                target_service=uuid(),
+            )
 
     def test_bruteforce_attack_could_not_start_service(self):
         device_uuid = setup_device()[0]
@@ -125,9 +160,14 @@ class TestBruteforce(TestCase):
         target_service = create_service(target_device, clear_service=False)[0]
 
         with self.assertRaises(CouldNotStartService):
-            self.client.ms("service", ["bruteforce", "attack"], device_uuid=device_uuid,
-                           service_uuid=service_uuid, target_device=target_device,
-                           target_service=target_service)
+            self.client.ms(
+                "service",
+                ["bruteforce", "attack"],
+                device_uuid=device_uuid,
+                service_uuid=service_uuid,
+                target_device=target_device,
+                target_service=target_service,
+            )
 
     def test_bruteforce_status_successful(self):
         device_uuid = setup_device()[0]
@@ -135,6 +175,7 @@ class TestBruteforce(TestCase):
         create_bruteforce_service(service_uuid, uuid(), uuid(), True)
 
         actual = self.client.ms("service", ["bruteforce", "status"], device_uuid=device_uuid, service_uuid=service_uuid)
+        self.assert_dict_with_keys(actual, ["uuid", "started", "target_device", "target_service", "progress"])
         self.assertEqual(service_uuid, actual["uuid"])
         self.assertEqual(1.0, actual["progress"])
         self.assert_valid_uuid(actual["target_device"])
@@ -148,6 +189,7 @@ class TestBruteforce(TestCase):
     def test_bruteforce_status_device_not_found(self):
         device_uuid = uuid()
         service_uuid = create_service(device_uuid, "bruteforce", speed=0.0)[0]
+
         with self.assertRaises(DeviceNotFoundException):
             self.client.ms("service", ["bruteforce", "status"], device_uuid=device_uuid, service_uuid=service_uuid)
 
@@ -193,18 +235,21 @@ class TestBruteforce(TestCase):
     def test_bruteforce_stop_device_not_found(self):
         device_uuid = uuid()
         service_uuid = create_service(device_uuid, "bruteforce", speed=2.0, clear_service=False)[0]
+
         with self.assertRaises(DeviceNotFoundException):
             self.client.ms("service", ["bruteforce", "stop"], device_uuid=device_uuid, service_uuid=service_uuid)
 
     def test_bruteforce_stop_device_powered_off(self):
         device_uuid = setup_device(2)[1]
         service_uuid = create_service(device_uuid, "bruteforce", speed=2.0, clear_service=False)[0]
+
         with self.assertRaises(DeviceNotOnlineException):
             self.client.ms("service", ["bruteforce", "stop"], device_uuid=device_uuid, service_uuid=service_uuid)
 
     def test_bruteforce_stop_permission_denied(self):
         device_uuid = setup_device(owner=uuid())[0]
         service_uuid = create_service(device_uuid, "bruteforce", speed=2.0, clear_service=False)[0]
+
         with self.assertRaises(PermissionDeniedException):
             self.client.ms("service", ["bruteforce", "stop"], device_uuid=device_uuid, service_uuid=service_uuid)
 

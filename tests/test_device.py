@@ -28,7 +28,7 @@ def clear_inventory():
     execute("TRUNCATE inventory_inventory")
 
 
-def setup_device(n=1, owner=super_uuid, starter_device=False,clear_device=True) -> List[str]:
+def setup_device(n=1, owner=super_uuid, starter_device=False, clear_device=True) -> List[str]:
     if clear_device:
         clear_devices()
     out = []
