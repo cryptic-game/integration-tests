@@ -11,7 +11,7 @@ from PyCrypCli.exceptions import (
 from database import execute
 from testcase import TestCase
 from tests.test_device import setup_device
-from tests.test_hardware import setup_service_req, setup_workload
+from tests.test_hardware import setup_workload
 from tests.test_server import setup_account, super_password, super_uuid
 from tests.test_service import create_service
 from tests.test_shop import create_wallet
@@ -138,19 +138,17 @@ class TestMiner(TestCase):
             self.client.ms("service", ["miner", "wallet"], service_uuid=service_uuid, wallet_uuid=uuid())
 
     def test_miner_power_successful(self):
-        # TODO: does not work
         device_uuid = setup_device()[0]
         setup_workload(device_uuid, False)
-        setup_service_req(device_uuid)
-        service_uuid = create_service(device_uuid, "miner")[0]
+        service_uuid = create_service(device_uuid, "miner", n=2)[1]
         wallet_uuid = create_wallet()[0]
-        create_miner_service(service_uuid, wallet_uuid, True, 0.1)
+        create_miner_service(service_uuid, wallet_uuid, False, 1)
 
         actual = self.client.ms("service", ["miner", "power"], service_uuid=service_uuid, power=1.0)
-        print(actual)
-
         self.assertEqual(service_uuid, actual["uuid"])
         self.assertEqual(wallet_uuid, actual["wallet"])
+        self.assertEqual(1.0, actual["power"])
+        self.assertIsInstance(actual["started"], int)
 
     def test_miner_power_service_not_found(self):
         with self.assertRaises(ServiceNotFoundException):
