@@ -5,7 +5,7 @@ from PyCrypCli.exceptions import (
     DeviceNotOnlineException,
     PermissionDeniedException,
     ServiceNotFoundException,
-    WalletNotFoundException
+    WalletNotFoundException,
 )
 
 from database import execute
@@ -20,11 +20,13 @@ from util import get_client, uuid
 
 def create_miner_service(service_uuid, wallet_uuid=None, started=False, power=0.0):
     clear_miner_service()
-    execute("INSERT INTO service_miner(uuid, wallet, started, power) VALUES (%s,%s,%s,%s)",
-            service_uuid,
-            wallet_uuid,
-            started,
-            power)
+    execute(
+        "INSERT INTO service_miner (uuid, wallet, started, power) VALUES (%s,%s,%s,%s)",
+        service_uuid,
+        wallet_uuid,
+        started,
+        power,
+    )
 
 
 def clear_miner_service():
@@ -46,6 +48,7 @@ class TestMiner(TestCase):
         device_uuid = setup_device()[0]
         service_uuid = create_service(device_uuid, "miner")[0]
         create_miner_service(service_uuid)
+
         expected = {"wallet": None, "started": 0, "power": 0.0, "uuid": service_uuid}
         actual = self.client.ms("service", ["miner", "get"], service_uuid=service_uuid)
         self.assertEqual(expected, actual)
@@ -62,12 +65,14 @@ class TestMiner(TestCase):
     def test_miner_get_device_powered_off(self):
         device_uuid = setup_device(2)[1]
         service_uuid = create_service(device_uuid, "miner")[0]
+
         with self.assertRaises(DeviceNotOnlineException):
             self.client.ms("service", ["miner", "get"], service_uuid=service_uuid)
 
     def test_miner_get_permission_denied(self):
         device_uuid = setup_device(owner=uuid())[0]
         service_uuid = create_service(device_uuid, "miner")[0]
+
         with self.assertRaises(PermissionDeniedException):
             self.client.ms("service", ["miner", "get"], service_uuid=service_uuid)
 
@@ -76,27 +81,26 @@ class TestMiner(TestCase):
         service_uuid = create_service(device_uuid, "miner")[0]
         wallet_uuid = create_wallet()[0]
         create_miner_service(service_uuid, wallet_uuid)
+
         expected = {
-            "service": {
-                "running": True,
-                "owner": super_uuid,
-                "running_port": 1337,
-                "name": "miner",
-                "uuid": service_uuid,
-                "device": device_uuid,
-                "part_owner": None,
-                "speed": None},
-            "miner": {
-                "wallet": wallet_uuid,
-                "started": 0,
-                "power": 0.0,
-                "uuid": service_uuid
-            }
+            "miners": [
+                {
+                    "service": {
+                        "running": True,
+                        "owner": super_uuid,
+                        "running_port": 1337,
+                        "name": "miner",
+                        "uuid": service_uuid,
+                        "device": device_uuid,
+                        "part_owner": None,
+                        "speed": None,
+                    },
+                    "miner": {"wallet": wallet_uuid, "started": 0, "power": 0.0, "uuid": service_uuid},
+                }
+            ]
         }
         actual = self.client.ms("service", ["miner", "list"], wallet_uuid=wallet_uuid)
-        self.assert_dict_with_keys(actual, ["miners"])
-        for miner in actual["miners"]:
-            self.assertEqual(expected, miner)
+        self.assertEqual(expected, actual)
 
     def test_miner_wallet(self):
         device_uuid = setup_device()[0]
@@ -116,24 +120,28 @@ class TestMiner(TestCase):
 
     def test_miner_wallet_device_not_found(self):
         service_uuid = create_service(uuid(), "miner")[0]
+
         with self.assertRaises(DeviceNotFoundException):
             self.client.ms("service", ["miner", "wallet"], service_uuid=service_uuid, wallet_uuid=uuid())
 
     def test_miner_wallet_device_not_online(self):
         device_uuid = setup_device(2)[1]
         service_uuid = create_service(device_uuid, "miner")[0]
+
         with self.assertRaises(DeviceNotOnlineException):
             self.client.ms("service", ["miner", "wallet"], service_uuid=service_uuid, wallet_uuid=uuid())
 
     def test_miner_wallet_permission_denied(self):
         device_uuid = setup_device(owner=uuid())[0]
         service_uuid = create_service(device_uuid, "miner")[0]
+
         with self.assertRaises(PermissionDeniedException):
             self.client.ms("service", ["miner", "wallet"], service_uuid=service_uuid, wallet_uuid=uuid())
 
     def test_miner_wallet_not_found(self):
         device_uuid = setup_device()[0]
         service_uuid = create_service(device_uuid, "miner")[0]
+
         with self.assertRaises(WalletNotFoundException):
             self.client.ms("service", ["miner", "wallet"], service_uuid=service_uuid, wallet_uuid=uuid())
 
