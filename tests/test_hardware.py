@@ -8,22 +8,25 @@ from PyCrypCli.exceptions import (
 
 from database import execute
 from testcase import TestCase
-from tests.test_device import clear_devices, clear_inventory, add_inventory_element
+from tests.test_device import add_inventory_element, clear_devices, clear_inventory
 from tests.test_server import setup_account, super_password
 from util import get_client, uuid
 
 ELEMENT_TYPES = ["mainboard", "cpu", "ram", "gpu", "disk", "processorCooler", "powerPack", "case"]
 
 
-def setup_workload() -> str:
-    clear_devices()
+def setup_workload(device_uuid=None, clear_device=True) -> str:
+    if clear_device:
+        clear_devices()
+    if device_uuid is None:
+        device_uuid = uuid()
     execute("TRUNCATE device_workload")
     execute(
         "INSERT INTO device_workload "
         "(uuid, performance_cpu, performance_gpu, performance_ram, performance_disk, performance_network, "
         "usage_cpu, usage_gpu, usage_ram, usage_disk, usage_network) VALUES "
         "(%s, 10, 20, 40, 80, 160, 1, 4, 16, 64, 256)",
-        device_uuid := uuid(),
+        device_uuid,
     )
     return device_uuid
 
