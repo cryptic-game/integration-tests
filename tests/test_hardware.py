@@ -109,11 +109,17 @@ class TestHardware(TestCase):
         device_uuid = setup_workload()
 
         expected = {
-            "cpu": 0.1,
-            "gpu": 0.2,
-            "ram": 0.4,
-            "disk": 0.8,
-            "network": 1,
+            "uuid": device_uuid,
+            "performance_cpu": 10,
+            "performance_gpu": 20,
+            "performance_ram": 40,
+            "performance_disk": 80,
+            "performance_network": 160,
+            "usage_cpu": 1,
+            "usage_gpu": 4,
+            "usage_ram": 16,
+            "usage_disk": 64,
+            "usage_network": 256,
         }
         actual = self.client.ms("device", ["hardware", "resources"], device_uuid=device_uuid)
 
